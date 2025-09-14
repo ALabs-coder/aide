@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Design System Colors */
+    --background: 0 0% 100%;
+    --foreground: 220 84% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 84% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 84% 11%;
+    --primary: 217 91% 60%; /* #3B82F6 blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 213 27% 84%; /* #D1D5DB */
+    --secondary-foreground: 215 16% 47%; /* #6B7280 */
+    --muted: 210 40% 98%; /* #F8FAFC */
+    --muted-foreground: 215 16% 47%; /* #6B7280 */
+    --accent: 210 40% 96%; /* #F3F4F6 */
+    --accent-foreground: 220 84% 11%;
+    --destructive: 0 74% 42%; /* #DC2626 */
+    --destructive-foreground: 0 0% 100%;
+    --success: 160 84% 39%; /* #059669 */
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 44%; /* #D97706 */
+    --warning-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 84% 5%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 57%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
+    --success: 160 84% 39%;
+    --success-foreground: 213 31% 91%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 213 31% 91%;
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-[system-ui,'Geist',sans-serif] antialiased;
+  }
+  
+  /* Typography System */
+  h1 {
+    @apply text-[32px] font-bold leading-tight;
+  }
+  h2 {
+    @apply text-[20px] font-semibold leading-tight;
+  }
+  .body-text {
+    @apply text-[16px] font-normal leading-normal;
+  }
+  .table-text {
+    @apply text-[14px] font-medium leading-normal;
+  }
+  .caption-text {
+    @apply text-[12px] font-normal leading-normal;
+  }
+}
+
+@layer components {
+  /* Animation System */
+  .transition-fast {
+    @apply transition-all duration-150 ease-out;
+  }
+  .transition-normal {
+    @apply transition-all duration-300 ease-out;
+  }
+  .transition-slow {
+    @apply transition-all duration-500 ease-out;
+  }
+  
+  /* Glassmorphism Effects */
+  .glass {
+    @apply backdrop-blur-md bg-white/80 dark:bg-gray-900/80;
+  }
+  
+  /* Layout Helpers */
+  .panel-shadow {
+    @apply shadow-sm border border-border/50;
+  }
+  
+  /* Micro-interactions */
+  .button-press {
+    @apply active:scale-[0.98] transition-transform duration-100;
+  }
+  
+  .hover-lift {
+    @apply hover:shadow-md hover:-translate-y-0.5 transition-all duration-200;
+  }
+  
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 transition-all duration-150;
+  }
+  
+  /* Loading Animations */
+  .pulse-slow {
+    @apply animate-pulse;
+    animation-duration: 2s;
+  }
+  
+  .fade-in {
+    @apply animate-in fade-in-0 duration-300;
+  }
+  
+  .slide-in {
+    @apply animate-in slide-in-from-bottom-4 duration-400;
+  }
+  
+  .scale-in {
+    @apply animate-in zoom-in-95 duration-300;
+  }
+}

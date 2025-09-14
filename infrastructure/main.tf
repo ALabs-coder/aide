@@ -1,0 +1,161 @@
+# PDF Extractor API Infrastructure
+# Terraform configuration for AWS Lambda-based PDF processing API
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.4"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
+  }
+  
+  # Uncomment and configure for remote state
+  # backend "s3" {
+  #   bucket         = "your-terraform-state-bucket"
+  #   key            = "pdf-extractor-api/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   dynamodb_table = "terraform-state-lock"
+  #   encrypt        = true
+  # }
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = var.aws_region
+  
+  default_tags {
+    tags = {
+      Project   = var.project_name
+      ManagedBy = "Terraform"
+    }
+  }
+}
+
+# Data sources
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# Local values
+locals {
+  account_id = data.aws_caller_identity.current.account_id
+  region     = data.aws_region.current.name
+  
+  common_tags = {
+    Project   = var.project_name
+    ManagedBy = "Terraform"
+  }
+  
+  # Simple resource naming
+  name_prefix = var.project_name
+}
+
+# DynamoDB Module - Created first as IAM needs the ARNs
+module "dynamodb" {
+  source = "./modules/dynamodb"
+  
+  name_prefix = local.name_prefix
+  tags        = local.common_tags
+}
+
+# S3 Module - Created second as IAM needs the ARN
+module "s3" {
+  source = "./modules/s3"
+  
+  name_prefix = local.name_prefix
+  tags        = local.common_tags
+}
+
+# SQS Module - Created third as IAM needs the ARNs
+module "sqs" {
+  source = "./modules/sqs"
+  
+  name_prefix    = local.name_prefix
+  tags           = local.common_tags
+  s3_bucket_arn  = module.s3.bucket.arn
+  
+  depends_on = [module.s3]
+}
+
+# IAM Module - Created fourth as it needs other modules' ARNs
+module "iam" {
+  source = "./modules/iam"
+  
+  name_prefix = local.name_prefix
+  aws_region  = var.aws_region
+  account_id  = local.account_id
+  tags        = local.common_tags
+  
+  # Dependencies from other modules
+  dynamodb_table_arns = module.dynamodb.table_arns
+  s3_bucket_arn       = module.s3.bucket.arn
+  sqs_queue_arns      = module.sqs.queue_arns
+  
+  depends_on = [module.dynamodb, module.s3, module.sqs]
+}
+
+# Lambda Layers Module - Must be created before Lambda functions
+module "lambda_layers" {
+  source = "./modules/lambda_layers"
+  
+  name_prefix = local.name_prefix
+  tags        = local.common_tags
+  layers_dir  = "lambda_packages/layers"
+}
+
+# Lambda Module - Now uses layers for dependencies
+module "lambda" {
+  source = "./modules/lambda"
+  
+  name_prefix  = local.name_prefix
+  tags         = local.common_tags
+  functions_dir = "lambda_packages/functions"
+  
+  # Dependencies from other modules
+  lambda_role_arn      = module.iam.lambda_role.arn
+  processing_queue_arn = module.sqs.processing_queue.arn
+  dlq_arn              = module.sqs.dlq.arn
+  
+  # Lambda layers from layers module
+  api_lambda_layers       = module.lambda_layers.api_lambda_layers
+  processor_lambda_layers = module.lambda_layers.processor_lambda_layers
+  
+  # Environment variables for all functions
+  environment_variables = {
+    JOBS_TABLE_NAME      = module.dynamodb.jobs_table.name
+    TRANSACTIONS_TABLE   = module.dynamodb.transactions_table.name
+    USAGE_TABLE_NAME     = module.dynamodb.usage_table.name
+    S3_BUCKET_NAME       = module.s3.bucket.id
+    PROCESSING_QUEUE_URL = module.sqs.processing_queue.url
+    DLQ_URL             = module.sqs.dlq.url
+    AWS_REGION          = var.aws_region
+  }
+  
+  depends_on = [module.iam, module.s3, module.sqs, module.lambda_layers]
+}
+
+# API Gateway Module
+module "api_gateway" {
+  source = "./modules/api_gateway"
+  
+  name_prefix           = local.name_prefix
+  tags                  = local.common_tags
+  
+  # Dependencies from Lambda module
+  lambda_invoke_arn     = module.lambda.functions.api.invoke_arn
+  lambda_function_name  = module.lambda.functions.api.name
+  
+  depends_on = [module.lambda, module.iam]
+}

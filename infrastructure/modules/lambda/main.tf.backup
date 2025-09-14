@@ -1,0 +1,233 @@
+# Lambda Functions for PDF Extractor API
+
+# Ensure output directory exists
+resource "null_resource" "create_output_dir" {
+  provisioner "local-exec" {
+    command = "mkdir -p ${var.output_dir}"
+  }
+}
+
+# Create deployment package for API Lambda
+data "archive_file" "api_lambda" {
+  type        = "zip"
+  source_dir  = "${var.source_dir}/lambdas/api"
+  output_path = "${var.output_dir}/api.zip"
+  
+  depends_on = [null_resource.create_output_dir]
+}
+
+# Create deployment package for Processor Lambda
+data "archive_file" "processor_lambda" {
+  type        = "zip"
+  source_dir  = "${var.source_dir}/lambdas/processor"
+  output_path = "${var.output_dir}/processor.zip"
+  
+  depends_on = [null_resource.create_output_dir]
+}
+
+# Create deployment package for Cleanup Lambda
+data "archive_file" "cleanup_lambda" {
+  type        = "zip"
+  source_dir  = "${var.source_dir}/lambdas/cleanup"
+  output_path = "${var.output_dir}/cleanup.zip"
+  
+  depends_on = [null_resource.create_output_dir]
+}
+
+# Create deployment package for DLQ Processor Lambda
+data "archive_file" "dlq_processor_lambda" {
+  type        = "zip"
+  source_dir  = "${var.source_dir}/lambdas/dlq_processor"
+  output_path = "${var.output_dir}/dlq_processor.zip"
+  
+  depends_on = [null_resource.create_output_dir]
+}
+
+# API Lambda function
+resource "aws_lambda_function" "api" {
+  filename         = data.archive_file.api_lambda.output_path
+  function_name    = "${var.name_prefix}-api"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = data.archive_file.api_lambda.output_base64sha256
+  runtime         = "python3.11"
+  timeout         = 180
+  memory_size     = 512
+
+  # Environment variables
+  environment {
+    variables = {
+      ENVIRONMENT = "production"
+    }
+  }
+
+  # Dead letter queue configuration
+  dead_letter_config {
+    target_arn = var.dlq_arn
+  }
+
+  # Reserved concurrency
+  reserved_concurrent_executions = 5
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-api"
+    Type = "Lambda"
+  })
+}
+
+# CloudWatch log group for API Lambda
+resource "aws_cloudwatch_log_group" "api" {
+  name              = "/aws/lambda/${aws_lambda_function.api.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# Processor Lambda function
+resource "aws_lambda_function" "processor" {
+  filename         = data.archive_file.processor_lambda.output_path
+  function_name    = "${var.name_prefix}-processor"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = data.archive_file.processor_lambda.output_base64sha256
+  runtime         = "python3.11"
+  timeout         = 600
+  memory_size     = 1024
+
+  # Environment variables
+  environment {
+    variables = {
+      ENVIRONMENT = "production"
+    }
+  }
+
+  # Dead letter queue configuration
+  dead_letter_config {
+    target_arn = var.dlq_arn
+  }
+
+  # Reserved concurrency
+  reserved_concurrent_executions = 2
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-processor"
+    Type = "Lambda"
+  })
+}
+
+# CloudWatch log group for Processor Lambda
+resource "aws_cloudwatch_log_group" "processor" {
+  name              = "/aws/lambda/${aws_lambda_function.processor.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# Event source mapping for processor Lambda (SQS trigger)
+resource "aws_lambda_event_source_mapping" "processor_sqs" {
+  event_source_arn = var.processing_queue_arn
+  function_name    = aws_lambda_function.processor.arn
+  batch_size       = 1
+  
+  # Only process messages when Lambda is not throttled
+  maximum_batching_window_in_seconds = 5
+}
+
+# Cleanup Lambda function
+resource "aws_lambda_function" "cleanup" {
+  filename         = data.archive_file.cleanup_lambda.output_path
+  function_name    = "${var.name_prefix}-cleanup"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = data.archive_file.cleanup_lambda.output_base64sha256
+  runtime         = "python3.11"
+  timeout         = 300
+  memory_size     = 256
+
+  # Environment variables
+  environment {
+    variables = {
+      ENVIRONMENT = "production"
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-cleanup"
+    Type = "Lambda"
+  })
+}
+
+# CloudWatch log group for Cleanup Lambda
+resource "aws_cloudwatch_log_group" "cleanup" {
+  name              = "/aws/lambda/${aws_lambda_function.cleanup.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# CloudWatch event rule for cleanup (runs daily)
+resource "aws_cloudwatch_event_rule" "cleanup_schedule" {
+  name                = "${var.name_prefix}-cleanup-schedule"
+  description         = "Daily cleanup of old files and records"
+  schedule_expression = "cron(0 2 * * ? *)"  # Run at 2 AM UTC daily
+
+  tags = var.tags
+}
+
+# CloudWatch event target for cleanup Lambda
+resource "aws_cloudwatch_event_target" "cleanup_target" {
+  rule      = aws_cloudwatch_event_rule.cleanup_schedule.name
+  target_id = "CleanupTarget"
+  arn       = aws_lambda_function.cleanup.arn
+}
+
+# Permission for CloudWatch to invoke cleanup Lambda
+resource "aws_lambda_permission" "allow_cloudwatch_cleanup" {
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.cleanup.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.cleanup_schedule.arn
+}
+
+# DLQ Processor Lambda function
+resource "aws_lambda_function" "dlq_processor" {
+  filename         = data.archive_file.dlq_processor_lambda.output_path
+  function_name    = "${var.name_prefix}-dlq-processor"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = data.archive_file.dlq_processor_lambda.output_base64sha256
+  runtime         = "python3.11"
+  timeout         = 300
+  memory_size     = 512
+
+  # Environment variables
+  environment {
+    variables = {
+      ENVIRONMENT = "production"
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-dlq-processor"
+    Type = "Lambda"
+  })
+}
+
+# CloudWatch log group for DLQ Processor Lambda
+resource "aws_cloudwatch_log_group" "dlq_processor" {
+  name              = "/aws/lambda/${aws_lambda_function.dlq_processor.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# Event source mapping for DLQ processor Lambda
+resource "aws_lambda_event_source_mapping" "dlq_processor_sqs" {
+  event_source_arn = var.dlq_arn
+  function_name    = aws_lambda_function.dlq_processor.arn
+  batch_size       = 1
+  
+  # Process messages from DLQ less frequently
+  maximum_batching_window_in_seconds = 60
+}

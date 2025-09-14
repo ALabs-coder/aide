@@ -1,0 +1,8 @@
+# API-specific dependencies layer - only for API Lambda function
+# API framework
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+mangum==0.18.0
+
+# HTTP client for health checks
+httpx==0.27.2
