@@ -84,6 +84,15 @@ build_function() {
             log_info "  Copied extract_pdf_data.py"
         fi
     fi
+
+    # Special handling for functions that need formatters directory
+    if [[ "$function_name" == "excel_export" || "$function_name" == "statement_data" ]]; then
+        # Copy formatters directory if it exists
+        if [[ -d "$API_ROOT/formatters" ]]; then
+            cp -r "$API_ROOT/formatters" "$build_dir/"
+            log_info "  Copied formatters directory"
+        fi
+    fi
     
     # Copy any additional function-specific files
     if [[ -f "$function_dir/requirements.txt" ]]; then
@@ -111,7 +120,7 @@ build_all_functions() {
     clean_output
     
     # List of Lambda functions to build
-    local functions=("api" "upload" "statement_data" "csv_export" "processor" "cleanup" "dlq_processor" "pdf_viewer")
+    local functions=("api" "upload" "statement_data" "excel_export" "processor" "cleanup" "dlq_processor" "pdf_viewer")
     
     for function_name in "${functions[@]}"; do
         build_function "$function_name"

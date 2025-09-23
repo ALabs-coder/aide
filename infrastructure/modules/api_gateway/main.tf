@@ -59,28 +59,28 @@ resource "aws_api_gateway_deployment" "api" {
     aws_api_gateway_method.statements_method,
     aws_api_gateway_method.upload_method,
     aws_api_gateway_method.statements_data_method,
-    aws_api_gateway_method.statements_csv_method,
+    aws_api_gateway_method.statements_excel_method,
     aws_api_gateway_method.pdf_method,
     aws_api_gateway_method.proxy_method,
     aws_api_gateway_method.proxy_root_method,
     aws_api_gateway_method.cors_statements_method,
     aws_api_gateway_method.cors_upload_method,
     aws_api_gateway_method.cors_statements_data_method,
-    aws_api_gateway_method.cors_statements_csv_method,
+    aws_api_gateway_method.cors_statements_excel_method,
     aws_api_gateway_method.cors_pdf_method,
     aws_api_gateway_method.cors_method,
     aws_api_gateway_method.cors_root_method,
     aws_api_gateway_integration.statements_integration,
     aws_api_gateway_integration.upload_integration,
     aws_api_gateway_integration.statements_data_integration,
-    aws_api_gateway_integration.statements_csv_integration,
+    aws_api_gateway_integration.statements_excel_integration,
     aws_api_gateway_integration.pdf_integration,
     aws_api_gateway_integration.proxy_integration,
     aws_api_gateway_integration.proxy_root_integration,
     aws_api_gateway_integration.cors_statements_integration,
     aws_api_gateway_integration.cors_upload_integration,
     aws_api_gateway_integration.cors_statements_data_integration,
-    aws_api_gateway_integration.cors_statements_csv_integration,
+    aws_api_gateway_integration.cors_statements_excel_integration,
     aws_api_gateway_integration.cors_pdf_integration,
     aws_api_gateway_integration.cors_integration,
     aws_api_gateway_integration.cors_root_integration,
@@ -93,36 +93,36 @@ resource "aws_api_gateway_deployment" "api" {
       aws_api_gateway_resource.statements.id,
       aws_api_gateway_resource.upload.id,
       aws_api_gateway_resource.statements_data.id,
-      aws_api_gateway_resource.statements_csv.id,
-      aws_api_gateway_resource.statements_csv_job_id.id,
+      aws_api_gateway_resource.statements_excel.id,
+      aws_api_gateway_resource.statements_excel_job_id.id,
       aws_api_gateway_resource.pdf.id,
       aws_api_gateway_resource.pdf_job_id.id,
       aws_api_gateway_resource.proxy.id,
       aws_api_gateway_method.statements_method.id,
       aws_api_gateway_method.upload_method.id,
       aws_api_gateway_method.statements_data_method.id,
-      aws_api_gateway_method.statements_csv_method.id,
+      aws_api_gateway_method.statements_excel_method.id,
       aws_api_gateway_method.pdf_method.id,
       aws_api_gateway_method.proxy_method.id,
       aws_api_gateway_method.proxy_root_method.id,
       aws_api_gateway_method.cors_statements_method.id,
       aws_api_gateway_method.cors_upload_method.id,
       aws_api_gateway_method.cors_statements_data_method.id,
-      aws_api_gateway_method.cors_statements_csv_method.id,
+      aws_api_gateway_method.cors_statements_excel_method.id,
       aws_api_gateway_method.cors_pdf_method.id,
       aws_api_gateway_method.cors_method.id,
       aws_api_gateway_method.cors_root_method.id,
       aws_api_gateway_integration.statements_integration.id,
       aws_api_gateway_integration.upload_integration.id,
       aws_api_gateway_integration.statements_data_integration.id,
-      aws_api_gateway_integration.statements_csv_integration.id,
+      aws_api_gateway_integration.statements_excel_integration.id,
       aws_api_gateway_integration.pdf_integration.id,
       aws_api_gateway_integration.proxy_integration.id,
       aws_api_gateway_integration.proxy_root_integration.id,
       aws_api_gateway_integration.cors_statements_integration.id,
       aws_api_gateway_integration.cors_upload_integration.id,
       aws_api_gateway_integration.cors_statements_data_integration.id,
-      aws_api_gateway_integration.cors_statements_csv_integration.id,
+      aws_api_gateway_integration.cors_statements_excel_integration.id,
       aws_api_gateway_integration.cors_pdf_integration.id,
       aws_api_gateway_integration.cors_integration.id,
       aws_api_gateway_integration.cors_root_integration.id,
@@ -212,17 +212,17 @@ resource "aws_api_gateway_resource" "statements_data" {
   path_part   = "data"
 }
 
-# CSV export resource under statements
-resource "aws_api_gateway_resource" "statements_csv" {
+# Excel export resource under statements
+resource "aws_api_gateway_resource" "statements_excel" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_resource.statements.id
-  path_part   = "csv"
+  path_part   = "excel"
 }
 
-# CSV job_id resource (for path parameter)
-resource "aws_api_gateway_resource" "statements_csv_job_id" {
+# Excel job_id resource (for path parameter)
+resource "aws_api_gateway_resource" "statements_excel_job_id" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_resource.statements_csv.id
+  parent_id   = aws_api_gateway_resource.statements_excel.id
   path_part   = "{job_id}"
 }
 
@@ -275,10 +275,10 @@ resource "aws_api_gateway_method" "statements_data_method" {
   api_key_required = true
 }
 
-# Method for CSV export resource (GET method)
-resource "aws_api_gateway_method" "statements_csv_method" {
+# Method for Excel export resource (GET method)
+resource "aws_api_gateway_method" "statements_excel_method" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.statements_csv_job_id.id
+  resource_id   = aws_api_gateway_resource.statements_excel_job_id.id
   http_method   = "GET"
   authorization = "NONE"
   api_key_required = true
@@ -363,15 +363,15 @@ resource "aws_api_gateway_integration" "statements_data_integration" {
   timeout_milliseconds = 29000
 }
 
-# Integration for CSV export resource
-resource "aws_api_gateway_integration" "statements_csv_integration" {
+# Integration for Excel export resource
+resource "aws_api_gateway_integration" "statements_excel_integration" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  resource_id = aws_api_gateway_method.statements_csv_method.resource_id
-  http_method = aws_api_gateway_method.statements_csv_method.http_method
+  resource_id = aws_api_gateway_method.statements_excel_method.resource_id
+  http_method = aws_api_gateway_method.statements_excel_method.http_method
 
   integration_http_method = "POST"
   type                   = "AWS_PROXY"
-  uri                    = var.csv_export_lambda_invoke_arn
+  uri                    = var.excel_export_lambda_invoke_arn
 
   # Timeout configuration
   timeout_milliseconds = 29000
@@ -449,13 +449,13 @@ resource "aws_lambda_permission" "statements_data_api_gateway" {
   source_arn    = "${aws_api_gateway_rest_api.api.execution_arn}/*/GET/statements/data"
 }
 
-# Lambda permission for CSV export endpoint
-resource "aws_lambda_permission" "csv_export_api_gateway" {
+# Lambda permission for Excel export endpoint
+resource "aws_lambda_permission" "excel_export_api_gateway" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = var.csv_export_lambda_name
+  function_name = var.excel_export_lambda_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.api.execution_arn}/*/GET/statements/csv/*"
+  source_arn    = "${aws_api_gateway_rest_api.api.execution_arn}/*/GET/statements/excel/*"
 }
 
 # Lambda permission for PDF viewer endpoint
@@ -581,10 +581,10 @@ resource "aws_api_gateway_method" "cors_statements_data_method" {
   api_key_required = false
 }
 
-# CORS configuration for CSV export endpoint
-resource "aws_api_gateway_method" "cors_statements_csv_method" {
+# CORS configuration for Excel export endpoint
+resource "aws_api_gateway_method" "cors_statements_excel_method" {
   rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.statements_csv_job_id.id
+  resource_id   = aws_api_gateway_resource.statements_excel_job_id.id
   http_method   = "OPTIONS"
   authorization = "NONE"
   api_key_required = false
@@ -642,11 +642,11 @@ resource "aws_api_gateway_integration_response" "cors_statements_data_integratio
   }
 }
 
-# CORS integration for CSV export endpoint
-resource "aws_api_gateway_integration" "cors_statements_csv_integration" {
+# CORS integration for Excel export endpoint
+resource "aws_api_gateway_integration" "cors_statements_excel_integration" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  resource_id = aws_api_gateway_resource.statements_csv_job_id.id
-  http_method = aws_api_gateway_method.cors_statements_csv_method.http_method
+  resource_id = aws_api_gateway_resource.statements_excel_job_id.id
+  http_method = aws_api_gateway_method.cors_statements_excel_method.http_method
   type        = "MOCK"
 
   request_templates = {
@@ -656,10 +656,10 @@ resource "aws_api_gateway_integration" "cors_statements_csv_integration" {
   }
 }
 
-resource "aws_api_gateway_method_response" "cors_statements_csv_method_response" {
+resource "aws_api_gateway_method_response" "cors_statements_excel_method_response" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  resource_id = aws_api_gateway_resource.statements_csv_job_id.id
-  http_method = aws_api_gateway_method.cors_statements_csv_method.http_method
+  resource_id = aws_api_gateway_resource.statements_excel_job_id.id
+  http_method = aws_api_gateway_method.cors_statements_excel_method.http_method
   status_code = "200"
 
   response_parameters = {
@@ -673,11 +673,11 @@ resource "aws_api_gateway_method_response" "cors_statements_csv_method_response"
   }
 }
 
-resource "aws_api_gateway_integration_response" "cors_statements_csv_integration_response" {
+resource "aws_api_gateway_integration_response" "cors_statements_excel_integration_response" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  resource_id = aws_api_gateway_resource.statements_csv_job_id.id
-  http_method = aws_api_gateway_method.cors_statements_csv_method.http_method
-  status_code = aws_api_gateway_method_response.cors_statements_csv_method_response.status_code
+  resource_id = aws_api_gateway_resource.statements_excel_job_id.id
+  http_method = aws_api_gateway_method.cors_statements_excel_method.http_method
+  status_code = aws_api_gateway_method_response.cors_statements_excel_method_response.status_code
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"

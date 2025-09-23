@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-AWS Lambda handler for CSV Export API
-Fetches processed JSON data from S3 and converts to CSV format for download
+AWS Lambda handler for Excel Export API
+Fetches processed JSON data from S3 and converts to Excel format for download
 """
 
 import json
@@ -11,10 +11,11 @@ import os
 import boto3
 from decimal import Decimal
 import base64
+from io import BytesIO
 
 # Import shared formatting utilities
-from formatters.transaction_formatter import (
-    generate_csv_content,
+from formatters.excel_formatter import (
+    create_excel_workbook,
     get_statement_filename
 )
 
@@ -40,21 +41,21 @@ dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
 
 def handler(event, context):
     """
-    AWS Lambda entry point for CSV Export API
+    AWS Lambda entry point for Excel Export API
 
     Args:
         event: API Gateway event data
         context: Lambda context object
 
     Returns:
-        API Gateway response with CSV content
+        API Gateway response with Excel content
     """
     try:
         # Extract request details
         http_method = event.get('httpMethod', 'GET')
         path = event.get('path', '/')
 
-        logger.info(f"CSV Export request: {http_method} {path}")
+        logger.info(f"Excel Export request: {http_method} {path}")
 
         # CORS headers for all responses
         cors_headers = {
@@ -96,7 +97,7 @@ def handler(event, context):
                 }, cls=DecimalEncoder)
             }
 
-        return handle_csv_export(job_id, cors_headers)
+        return handle_excel_export(job_id, cors_headers)
 
     except Exception as e:
         logger.error(f"Lambda error: {str(e)}", exc_info=True)
@@ -113,8 +114,8 @@ def handler(event, context):
             })
         }
 
-def handle_csv_export(job_id, cors_headers):
-    """Handle CSV export request"""
+def handle_excel_export(job_id, cors_headers):
+    """Handle Excel export request"""
     try:
         # Get job details from DynamoDB (same logic as statement_data Lambda)
         table = dynamodb.Table(JOBS_TABLE_NAME)
@@ -145,7 +146,59 @@ def handle_csv_export(job_id, cors_headers):
                 }, cls=DecimalEncoder)
             }
 
-        # Get the S3 results key
+        # Check if Excel file already exists in S3
+        excel_s3_key = job_item.get('excel_s3_key')
+
+        if excel_s3_key:
+            # Excel file exists, generate presigned URL for direct download
+            try:
+                logger.info(f"Excel file exists in S3: {excel_s3_key}")
+
+                # Check if file actually exists in S3
+                try:
+                    s3_client.head_object(Bucket=S3_BUCKET_NAME, Key=excel_s3_key)
+                except s3_client.exceptions.NoSuchKey:
+                    logger.warning(f"Excel file not found in S3, will generate on-demand: {excel_s3_key}")
+                    excel_s3_key = None
+
+                if excel_s3_key:
+                    # Generate filename using metadata
+                    statement_metadata = job_item.get('statement_metadata', {})
+                    filename = get_statement_filename(statement_metadata, job_id, 'xlsx')
+
+                    # Generate presigned URL for download (valid for 1 hour)
+                    presigned_url = s3_client.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': S3_BUCKET_NAME, 'Key': excel_s3_key},
+                        ExpiresIn=3600,  # 1 hour
+                        HttpMethod='GET'
+                    )
+
+                    logger.info(f"Generated presigned URL for Excel download: {job_id}")
+
+                    # Return redirect to presigned URL
+                    return {
+                        'statusCode': 302,
+                        'headers': {
+                            **cors_headers,
+                            'Location': presigned_url,
+                            'Content-Disposition': f'attachment; filename="{filename}"'
+                        },
+                        'body': json.dumps({
+                            'download_url': presigned_url,
+                            'filename': filename,
+                            'job_id': job_id
+                        }, cls=DecimalEncoder)
+                    }
+
+            except Exception as e:
+                logger.error(f"Error generating presigned URL: {e}", exc_info=True)
+                # Fall through to on-demand generation
+
+        # Excel file doesn't exist or error occurred, fall back to on-demand generation
+        logger.info(f"Excel file not available in S3, generating on-demand for job {job_id}")
+
+        # Get the S3 results key for JSON data
         results_s3_key = job_item.get('results_s3_key')
 
         if not results_s3_key:
@@ -161,7 +214,7 @@ def handle_csv_export(job_id, cors_headers):
 
         # Fetch the JSON data from S3 (same logic as statement_data Lambda)
         try:
-            logger.info(f"Fetching data from S3 for CSV export: bucket={S3_BUCKET_NAME}, key={results_s3_key}")
+            logger.info(f"Fetching data from S3 for Excel export: bucket={S3_BUCKET_NAME}, key={results_s3_key}")
 
             s3_response = s3_client.get_object(
                 Bucket=S3_BUCKET_NAME,
@@ -186,25 +239,63 @@ def handle_csv_export(job_id, cors_headers):
                     }, cls=DecimalEncoder)
                 }
 
-            # Generate CSV content using shared formatter
-            csv_content = generate_csv_content(transactions)
+            # Generate Excel content using shared formatter
+            logger.info(f"About to call create_excel_workbook with {len(transactions)} transactions")
+            try:
+                excel_buffer = create_excel_workbook(transactions)
+                logger.info("Excel generation completed successfully")
+            except Exception as e:
+                logger.error(f"Error in create_excel_workbook: {e}", exc_info=True)
+                raise
+
+            # Store Excel file in S3 for future use
+            excel_s3_key = f"results/{job_id}/statement.xlsx"
+            try:
+                s3_client.put_object(
+                    Bucket=S3_BUCKET_NAME,
+                    Key=excel_s3_key,
+                    Body=excel_buffer.getvalue(),
+                    ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                logger.info(f"Stored Excel file in S3 for future use: {excel_s3_key}")
+
+                # Update job record with Excel S3 key
+                try:
+                    table = dynamodb.Table(JOBS_TABLE_NAME)
+                    table.update_item(
+                        Key={'job_id': job_id},
+                        UpdateExpression="SET excel_s3_key = :excel_key",
+                        ExpressionAttributeValues={':excel_key': excel_s3_key}
+                    )
+                    logger.info(f"Updated job record with Excel S3 key: {job_id}")
+                except Exception as update_error:
+                    logger.error(f"Failed to update job record with Excel S3 key: {update_error}")
+
+            except Exception as store_error:
+                logger.error(f"Failed to store Excel file in S3: {store_error}")
+                # Continue with on-demand response even if storage fails
 
             # Generate filename using metadata
             statement_metadata = job_item.get('statement_metadata', {})
-            filename = get_statement_filename(statement_metadata, job_id)
+            filename = get_statement_filename(statement_metadata, job_id, 'xlsx')
 
-            logger.info(f"Generated CSV with {len(transactions)} transactions for job {job_id}")
+            logger.info(f"Generated Excel with {len(transactions)} transactions for job {job_id}")
 
-            # Return CSV response
+            # Convert BytesIO to base64 string for API Gateway
+            excel_bytes = excel_buffer.getvalue()
+            excel_base64 = base64.b64encode(excel_bytes).decode('utf-8')
+
+            # Return Excel response
             return {
                 'statusCode': 200,
                 'headers': {
                     **cors_headers,
-                    'Content-Type': 'text/csv',
+                    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     'Content-Disposition': f'attachment; filename="{filename}"',
                     'Cache-Control': 'no-cache'
                 },
-                'body': csv_content
+                'body': excel_base64,
+                'isBase64Encoded': True
             }
 
         except s3_client.exceptions.NoSuchKey:
@@ -233,7 +324,7 @@ def handle_csv_export(job_id, cors_headers):
             }
 
         except Exception as e:
-            logger.error(f"S3 access error: {e}")
+            logger.error(f"S3 access error: {e}", exc_info=True)
             return {
                 'statusCode': 500,
                 'headers': {**cors_headers, 'Content-Type': 'application/json'},
@@ -245,13 +336,13 @@ def handle_csv_export(job_id, cors_headers):
             }
 
     except Exception as e:
-        logger.error(f"Error in handle_csv_export: {e}", exc_info=True)
+        logger.error(f"Error in handle_excel_export: {e}", exc_info=True)
         return {
             'statusCode': 500,
             'headers': {**cors_headers, 'Content-Type': 'application/json'},
             'body': json.dumps({
                 'error': 'Internal Server Error',
-                'message': 'Failed to generate CSV export',
+                'message': 'Failed to generate Excel export',
                 'job_id': job_id
             }, cls=DecimalEncoder)
         }

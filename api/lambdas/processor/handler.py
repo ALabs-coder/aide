@@ -14,6 +14,12 @@ from decimal import Decimal
 # Import the extraction function (it's in the same package now)
 from extract_pdf_data import extract_bank_statement_data
 
+# Import Excel formatting utilities
+from formatters.excel_formatter import (
+    create_excel_workbook,
+    get_statement_filename
+)
+
 # Setup basic logging for Lambda
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -197,6 +203,20 @@ def process_message(record: Dict, context) -> Dict:
                 results_key = f"results/{job_id}/transactions.json"
                 upload_complete_results_to_s3(results_key, extraction_result)
 
+                # Generate and upload Excel file
+                excel_s3_key = None
+                if transactions:  # Only generate Excel if we have transactions
+                    try:
+                        logger.info(f"Generating Excel file for job {job_id} with {len(transactions)} transactions")
+                        excel_buffer = create_excel_workbook(transactions)
+                        excel_s3_key = f"results/{job_id}/statement.xlsx"
+                        upload_excel_to_s3(excel_s3_key, excel_buffer, job_id)
+                        logger.info(f"Excel file generated and uploaded successfully for job {job_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate Excel file for job {job_id}: {e}", exc_info=True)
+                        # Continue processing even if Excel generation fails
+                        excel_s3_key = None
+
                 # Update job status with enhanced metadata
                 update_data = {
                     "completed_at": context.aws_request_id,
@@ -206,6 +226,10 @@ def process_message(record: Dict, context) -> Dict:
                     "financial_summary": financial_summary
                 }
 
+                # Add Excel S3 key if successfully generated
+                if excel_s3_key:
+                    update_data["excel_s3_key"] = excel_s3_key
+
             else:
                 # Legacy extraction (list of transactions)
                 transactions = extraction_result if extraction_result else []
@@ -214,12 +238,30 @@ def process_message(record: Dict, context) -> Dict:
                 results_key = f"results/{job_id}/transactions.json"
                 upload_results_to_s3(results_key, transactions)
 
+                # Generate and upload Excel file
+                excel_s3_key = None
+                if transactions:  # Only generate Excel if we have transactions
+                    try:
+                        logger.info(f"Generating Excel file for legacy format job {job_id} with {len(transactions)} transactions")
+                        excel_buffer = create_excel_workbook(transactions)
+                        excel_s3_key = f"results/{job_id}/statement.xlsx"
+                        upload_excel_to_s3(excel_s3_key, excel_buffer, job_id)
+                        logger.info(f"Excel file generated and uploaded successfully for legacy job {job_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate Excel file for legacy job {job_id}: {e}", exc_info=True)
+                        # Continue processing even if Excel generation fails
+                        excel_s3_key = None
+
                 # Update job status (legacy format)
                 update_data = {
                     "completed_at": context.aws_request_id,
                     "total_transactions": len(transactions),
                     "results_s3_key": results_key
                 }
+
+                # Add Excel S3 key if successfully generated
+                if excel_s3_key:
+                    update_data["excel_s3_key"] = excel_s3_key
 
             update_job_status(job_id, "completed", update_data)
             
@@ -304,6 +346,20 @@ def upload_complete_results_to_s3(s3_key: str, complete_data: Dict) -> None:
         logger.info(f"Uploaded complete results to S3: {s3_key}")
     except Exception as e:
         logger.error(f"Failed to upload complete results to S3: {s3_key}", exc_info=True)
+        raise
+
+def upload_excel_to_s3(s3_key: str, excel_buffer, job_id: str) -> None:
+    """Upload Excel file to S3"""
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=s3_key,
+            Body=excel_buffer.getvalue(),
+            ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        logger.info(f"Uploaded Excel file to S3: {s3_key} for job {job_id}")
+    except Exception as e:
+        logger.error(f"Failed to upload Excel file to S3: {s3_key} for job {job_id}", exc_info=True)
         raise
 
 def update_job_status(job_id: str, status: str, additional_data: Dict = None) -> None:

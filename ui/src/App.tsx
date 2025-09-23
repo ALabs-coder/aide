@@ -20,7 +20,7 @@ function App() {
   const [bankStatements, setBankStatements] = useState<BankStatement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [downloadingCSV, setDownloadingCSV] = useState<string | null>(null)
+  const [downloadingExcel, setDownloadingExcel] = useState<string | null>(null)
   
   const handleReset = () => {
     // No-op for simplified header
@@ -76,17 +76,17 @@ function App() {
     navigate(`/results/${statement.id}`)
   }
 
-  const handleDownloadCSV = async (statement: BankStatement) => {
-    setDownloadingCSV(statement.id)
+  const handleDownloadExcel = async (statement: BankStatement) => {
+    setDownloadingExcel(statement.id)
     try {
-      await apiService.downloadCSV(statement.id)
+      await apiService.downloadExcel(statement.id)
     } catch (error) {
       const errorMessage = error instanceof ApiError
         ? error.message
-        : 'CSV download failed: Unknown error'
+        : 'Excel download failed: Unknown error'
       alert(errorMessage)
     } finally {
-      setDownloadingCSV(null)
+      setDownloadingExcel(null)
     }
   }
 
@@ -358,17 +358,17 @@ function App() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDownloadCSV(statement)}
-                              disabled={downloadingCSV === statement.id}
+                              onClick={() => handleDownloadExcel(statement)}
+                              disabled={downloadingExcel === statement.id}
                               className="flex items-center gap-1"
-                              title="Download CSV for Tally import"
+                              title="Download Excel file"
                             >
-                              {downloadingCSV === statement.id ? (
+                              {downloadingExcel === statement.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <Download className="w-4 h-4" />
                               )}
-                              CSV
+                              Excel
                             </Button>
                           </div>
                         ) : (

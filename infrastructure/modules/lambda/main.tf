@@ -136,13 +136,13 @@ resource "aws_cloudwatch_log_group" "statement_data" {
   tags = var.tags
 }
 
-# CSV Export Lambda function
-resource "aws_lambda_function" "csv_export" {
-  filename         = "${var.functions_dir}/csv_export.zip"
-  function_name    = "${var.name_prefix}-csv-export"
+# Excel Export Lambda function
+resource "aws_lambda_function" "excel_export" {
+  filename         = "${var.functions_dir}/excel_export.zip"
+  function_name    = "${var.name_prefix}-excel-export"
   role            = var.lambda_role_arn
   handler         = "handler.handler"
-  source_code_hash = filebase64sha256("${var.functions_dir}/csv_export.zip")
+  source_code_hash = filebase64sha256("${var.functions_dir}/excel_export.zip")
   runtime         = "python3.11"
   timeout         = 60
   memory_size     = 256
@@ -154,7 +154,7 @@ resource "aws_lambda_function" "csv_export" {
   environment {
     variables = merge(var.environment_variables, {
       ENVIRONMENT = "dev"
-      FUNCTION_TYPE = "csv_export"
+      FUNCTION_TYPE = "excel_export"
     })
   }
 
@@ -167,15 +167,15 @@ resource "aws_lambda_function" "csv_export" {
   reserved_concurrent_executions = 5
 
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-csv-export"
+    Name = "${var.name_prefix}-excel-export"
     Type = "Lambda"
     Architecture = "layers"
   })
 }
 
-# CloudWatch log group for CSV Export Lambda
-resource "aws_cloudwatch_log_group" "csv_export" {
-  name              = "/aws/lambda/${aws_lambda_function.csv_export.function_name}"
+# CloudWatch log group for Excel Export Lambda
+resource "aws_cloudwatch_log_group" "excel_export" {
+  name              = "/aws/lambda/${aws_lambda_function.excel_export.function_name}"
   retention_in_days = 7
 
   tags = var.tags
