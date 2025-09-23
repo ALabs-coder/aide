@@ -1,15 +1,8 @@
 # Backend Infrastructure for Terraform State Management
 
-# Random suffix to ensure unique bucket name
-resource "random_string" "state_bucket_suffix" {
-  length  = 8
-  special = false
-  upper   = false
-}
-
 # S3 bucket for Terraform state
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = "${var.name_prefix}-terraform-state-${random_string.state_bucket_suffix.result}"
+  bucket = "${var.name_prefix}-terraform-state"
 
   tags = merge(var.tags, {
     Name        = "${var.name_prefix}-terraform-state"

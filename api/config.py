@@ -6,7 +6,7 @@ Configuration settings for PDF Extractor Lambda
 import os
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
     """Application configuration settings"""
@@ -25,11 +25,11 @@ class Settings(BaseSettings):
     # Authentication
     api_key_header: str = Field(default="X-API-KEY", env="API_KEY_HEADER")
     valid_api_keys: List[str] = Field(
-        default=[], 
+        default=["2ZbAQyiEIz8hN4xsEsRfckbKPopB4snapYGobrXh"],
         env="VALID_API_KEYS",
         description="Comma-separated list of valid API keys"
     )
-    
+
     # JWT Configuration (for more advanced auth)
     jwt_secret_key: str = Field(default="", env="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     
     # AWS Configuration
     aws_region: str = Field(default="us-east-1", env="AWS_REGION")
+    s3_bucket_name: str = Field(default="pdf-extractor-api-storage", env="S3_BUCKET_NAME")
     
     # Logging
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
@@ -55,18 +56,20 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+
+    @field_validator('valid_api_keys', 'allowed_origins', 'allowed_file_types')
+    @classmethod
+    def parse_list_fields(cls, v):
+        """Parse comma-separated environment variables into lists"""
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(',') if item.strip()]
+        return v
         
     @property
     def max_file_size_bytes(self) -> int:
         """Convert MB to bytes"""
         return self.max_file_size_mb * 1024 * 1024
     
-    @classmethod
-    def parse_env_list(cls, v):
-        """Parse comma-separated environment variables into lists"""
-        if isinstance(v, str):
-            return [item.strip() for item in v.split(',') if item.strip()]
-        return v
 
 # Global settings instance
 settings = Settings()

@@ -1,15 +1,8 @@
 # S3 Storage for PDF Extractor API
 
-# Random suffix to ensure unique bucket name
-resource "random_string" "bucket_suffix" {
-  length  = 8
-  special = false
-  upper   = false
-}
-
 # S3 bucket for file storage
 resource "aws_s3_bucket" "storage" {
-  bucket = "${var.name_prefix}-storage-${random_string.bucket_suffix.result}"
+  bucket = "${var.name_prefix}-storage"
 
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-storage"
@@ -54,7 +47,7 @@ resource "aws_s3_bucket_cors_configuration" "storage" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "POST", "PUT", "DELETE", "HEAD"]
-    allowed_origins = ["*"]  # This should be restricted in production
+    allowed_origins = ["*"]  # Restrict to specific domains for better security
     expose_headers  = ["ETag", "x-amz-version-id"]
     max_age_seconds = 3000
   }
@@ -131,10 +124,4 @@ resource "aws_s3_bucket_lifecycle_configuration" "storage" {
   }
 }
 
-# Notification configuration for triggering Lambda on uploads
-resource "aws_s3_bucket_notification" "storage" {
-  bucket = aws_s3_bucket.storage.id
-
-  # We'll configure this in the main module after Lambda functions are created
-  # This is a placeholder to establish the resource
-}
+# Notification configuration - configured in main.tf to avoid circular dependency

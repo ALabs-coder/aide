@@ -1,19 +1,10 @@
-# Common dependencies layer - shared across all Lambda functions
-# AWS SDK
-boto3==1.35.0
-botocore==1.35.0
+# Common dependencies layer - lightweight version for slow networks
+# Core essentials only - compatible with aws-lambda-powertools 3.2.0
+# Note: AWS Lambda runtime already includes boto3/botocore, so we exclude them
+# to avoid version conflicts
 
-# PDF processing
-pdfplumber==0.11.7
-pandas==2.3.2
-
-# Authentication and validation
-pydantic==2.11.7
-pydantic-settings==2.6.0
-PyJWT==2.8.0
+# PDF processing - using pypdf for consistency
+pypdf==5.1.0
 
 # File type detection
 python-magic==0.4.27
-
-# Lambda-specific optimizations
-aws-lambda-powertools==3.2.0

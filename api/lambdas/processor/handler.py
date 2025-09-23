@@ -9,16 +9,13 @@ import os
 import sys
 from typing import Dict, List
 import logging
+from decimal import Decimal
 
-# Add parent directories to path to import our modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+# Import the extraction function (it's in the same package now)
+from extract_pdf_data import extract_bank_statement_data
 
-from extract_pdf_to_csv import extract_bank_statement_data
-from logging_config import setup_logging
-from config import settings
-
-# Setup logging for Lambda
-setup_logging()
+# Setup basic logging for Lambda
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # AWS clients
@@ -29,6 +26,32 @@ dynamodb = boto3.resource('dynamodb')
 # Environment variables
 JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-jobs')
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-storage')
+
+def convert_floats_to_decimal(obj):
+    """Convert float values to Decimal for DynamoDB compatibility"""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: convert_floats_to_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_floats_to_decimal(item) for item in obj]
+    else:
+        return obj
+
+def get_job_data(job_id):
+    """Retrieve job data from DynamoDB"""
+    try:
+        table = dynamodb.Table(JOBS_TABLE_NAME)
+        response = table.get_item(Key={'job_id': job_id})
+
+        if 'Item' not in response:
+            raise ValueError(f"Job not found: {job_id}")
+
+        return response['Item']
+    except Exception as e:
+        logger.error(f"Failed to retrieve job data: {e}")
+        raise
+
 
 def handler(event, context):
     """
@@ -111,14 +134,34 @@ def process_message(record: Dict, context) -> Dict:
     try:
         # Parse SQS message body
         message_body = json.loads(record['body'])
-        
+
+        logger.info("Processing SQS message", extra={
+            "message_id": message_id,
+            "message_body": message_body
+        })
+
         job_id = message_body.get('job_id')
         s3_key = message_body.get('s3_key')
-        password = message_body.get('password')
         user_id = message_body.get('user_id')
-        
+
         if not job_id or not s3_key:
-            raise ValueError("Missing required job_id or s3_key in message")
+            logger.error("Invalid SQS message format", extra={
+                "message_id": message_id,
+                "job_id": job_id,
+                "s3_key": s3_key,
+                "message_body": message_body
+            })
+            raise ValueError(f"Missing required job_id or s3_key in message. job_id: {job_id}, s3_key: {s3_key}")
+
+        # Retrieve job data from DynamoDB to get password
+        job_data = get_job_data(job_id)
+
+        # Get password if exists
+        password = job_data.get('password')
+        if password:
+            logger.info(f"Password found for job: {job_id}, length: {len(password)}")
+        else:
+            logger.info(f"No password for job: {job_id}")
         
         logger.info("Processing PDF job", extra={
             "job_id": job_id,
@@ -140,18 +183,45 @@ def process_message(record: Dict, context) -> Dict:
             tmp_file_path = tmp_file.name
         
         try:
-            transactions = extract_bank_statement_data(tmp_file_path, password)
-            
-            # Upload results back to S3
-            results_key = f"results/{job_id}/transactions.json"
-            upload_results_to_s3(results_key, transactions)
-            
-            # Update job status to completed
-            update_job_status(job_id, "completed", {
-                "completed_at": context.aws_request_id,
-                "total_transactions": len(transactions),
-                "results_s3_key": results_key
-            })
+            # Use enhanced extraction to get complete statement data
+            extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True)
+
+            # Handle both enhanced (dict) and legacy (list) results
+            if isinstance(extraction_result, dict):
+                # Enhanced extraction with metadata
+                transactions = extraction_result.get('transactions', [])
+                statement_metadata = extraction_result.get('statement_metadata', {})
+                financial_summary = extraction_result.get('financial_summary', {})
+
+                # Upload complete results to S3
+                results_key = f"results/{job_id}/transactions.json"
+                upload_complete_results_to_s3(results_key, extraction_result)
+
+                # Update job status with enhanced metadata
+                update_data = {
+                    "completed_at": context.aws_request_id,
+                    "total_transactions": len(transactions),
+                    "results_s3_key": results_key,
+                    "statement_metadata": statement_metadata,
+                    "financial_summary": financial_summary
+                }
+
+            else:
+                # Legacy extraction (list of transactions)
+                transactions = extraction_result if extraction_result else []
+
+                # Upload legacy results to S3
+                results_key = f"results/{job_id}/transactions.json"
+                upload_results_to_s3(results_key, transactions)
+
+                # Update job status (legacy format)
+                update_data = {
+                    "completed_at": context.aws_request_id,
+                    "total_transactions": len(transactions),
+                    "results_s3_key": results_key
+                }
+
+            update_job_status(job_id, "completed", update_data)
             
             logger.info("Successfully processed PDF job", extra={
                 "job_id": job_id,
@@ -178,12 +248,19 @@ def process_message(record: Dict, context) -> Dict:
             "error": str(e)
         }, exc_info=True)
         
-        # Update job status to failed
-        if 'job_id' in locals():
-            update_job_status(job_id, "failed", {
-                "failed_at": context.aws_request_id,
-                "error": str(e)
-            })
+        # Update job status to failed (only if we have a valid job_id)
+        if 'job_id' in locals() and job_id:
+            try:
+                update_job_status(job_id, "failed", {
+                    "failed_at": context.aws_request_id,
+                    "error": str(e)
+                })
+            except Exception as update_error:
+                logger.error("Failed to update job status to failed", extra={
+                    "job_id": job_id,
+                    "original_error": str(e),
+                    "update_error": str(update_error)
+                })
         
         raise
 
@@ -197,14 +274,14 @@ def download_from_s3(s3_key: str) -> bytes:
         raise
 
 def upload_results_to_s3(s3_key: str, transactions: List[Dict]) -> None:
-    """Upload extraction results to S3"""
+    """Upload extraction results to S3 (legacy format)"""
     try:
         results_data = {
             "total_transactions": len(transactions),
             "transactions": transactions,
             "processed_at": context.aws_request_id
         }
-        
+
         s3_client.put_object(
             Bucket=S3_BUCKET_NAME,
             Key=s3_key,
@@ -215,8 +292,26 @@ def upload_results_to_s3(s3_key: str, transactions: List[Dict]) -> None:
         logger.error(f"Failed to upload results to S3: {s3_key}", exc_info=True)
         raise
 
+def upload_complete_results_to_s3(s3_key: str, complete_data: Dict) -> None:
+    """Upload complete enhanced extraction results to S3"""
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=s3_key,
+            Body=json.dumps(complete_data, default=str, indent=2),
+            ContentType='application/json'
+        )
+        logger.info(f"Uploaded complete results to S3: {s3_key}")
+    except Exception as e:
+        logger.error(f"Failed to upload complete results to S3: {s3_key}", exc_info=True)
+        raise
+
 def update_job_status(job_id: str, status: str, additional_data: Dict = None) -> None:
     """Update job status in DynamoDB"""
+    if not job_id:
+        logger.error("Cannot update job status: job_id is None or empty")
+        return
+
     try:
         table = dynamodb.Table(JOBS_TABLE_NAME)
         
@@ -228,7 +323,7 @@ def update_job_status(job_id: str, status: str, additional_data: Dict = None) ->
             for key, value in additional_data.items():
                 update_expression += f", #{key} = :{key}"
                 expression_attribute_names[f"#{key}"] = key
-                expression_attribute_values[f":{key}"] = value
+                expression_attribute_values[f":{key}"] = convert_floats_to_decimal(value)
         
         table.update_item(
             Key={"job_id": job_id},
@@ -240,5 +335,5 @@ def update_job_status(job_id: str, status: str, additional_data: Dict = None) ->
         logger.info(f"Updated job status to {status}", extra={"job_id": job_id})
         
     except Exception as e:
-        logger.error(f"Failed to update job status in DynamoDB: {job_id}", exc_info=True)
+        logger.error(f"Failed to update job status in DynamoDB: {job_id} - {e}", exc_info=True)
         # Don't raise here as this is not critical to the processing

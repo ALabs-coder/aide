@@ -11,7 +11,7 @@ INFRA_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 API_ROOT="$PROJECT_ROOT/api"
 LAYERS_DIR="$INFRA_ROOT/layers"
 OUTPUT_DIR="$INFRA_ROOT/lambda_packages/layers"
-PYTHON_VERSION="python3.11"
+PYTHON_VERSION="python3"
 
 # Colors for output
 RED='\033[0;31m'
@@ -47,9 +47,13 @@ check_prerequisites() {
         exit 1
     fi
     
-    # Check pip
-    if ! command -v pip &> /dev/null; then
-        log_error "pip is required but not found. Please install pip."
+    # Check pip (prefer pip3 if available)
+    if command -v pip3 &> /dev/null; then
+        PIP_CMD="pip3"
+    elif command -v pip &> /dev/null; then
+        PIP_CMD="pip"
+    else
+        log_error "pip or pip3 is required but not found. Please install pip."
         exit 1
     fi
     
@@ -82,9 +86,19 @@ build_common_layer() {
     # Create build directory
     mkdir -p "$python_dir"
     
-    # Install dependencies
+    # Install dependencies for Lambda (manylinux compatible)
     log_info "Installing common dependencies..."
-    pip install -r "$layer_dir/requirements.txt" -t "$python_dir" --no-cache-dir --disable-pip-version-check
+    $PIP_CMD install -r "$layer_dir/requirements.txt" -t "$python_dir" \
+        --platform manylinux2014_x86_64 \
+        --implementation cp \
+        --python-version 3.11 \
+        --abi cp311 \
+        --no-deps \
+        --no-cache-dir \
+        --disable-pip-version-check || \
+    $PIP_CMD install -r "$layer_dir/requirements.txt" -t "$python_dir" \
+        --no-cache-dir \
+        --disable-pip-version-check
     
     # Remove unnecessary files to reduce size
     log_info "Optimizing layer size..."
@@ -119,9 +133,19 @@ build_api_layer() {
     # Create build directory
     mkdir -p "$python_dir"
     
-    # Install dependencies
+    # Install dependencies for Lambda (manylinux compatible)
     log_info "Installing API dependencies..."
-    pip install -r "$layer_dir/requirements.txt" -t "$python_dir" --no-cache-dir --disable-pip-version-check
+    $PIP_CMD install -r "$layer_dir/requirements.txt" -t "$python_dir" \
+        --platform manylinux2014_x86_64 \
+        --implementation cp \
+        --python-version 3.11 \
+        --abi cp311 \
+        --no-deps \
+        --no-cache-dir \
+        --disable-pip-version-check || \
+    $PIP_CMD install -r "$layer_dir/requirements.txt" -t "$python_dir" \
+        --no-cache-dir \
+        --disable-pip-version-check
     
     # Remove unnecessary files to reduce size
     log_info "Optimizing layer size..."
@@ -156,15 +180,48 @@ build_business_layer() {
     # Create build directory
     mkdir -p "$python_dir"
     
+    # Install dependencies if requirements.txt exists
+    if [[ -f "$layer_dir/requirements.txt" ]]; then
+        local site_packages_dir="$python_dir/lib/python3.11/site-packages"
+        mkdir -p "$site_packages_dir"
+        log_info "Installing business logic dependencies..."
+        $PIP_CMD install -r "$layer_dir/requirements.txt" -t "$site_packages_dir" \
+            --platform manylinux2014_x86_64 \
+            --implementation cp \
+            --python-version 3.11 \
+            --abi cp311 \
+            --no-deps \
+            --no-cache-dir \
+            --disable-pip-version-check || \
+        $PIP_CMD install -r "$layer_dir/requirements.txt" -t "$site_packages_dir" \
+            --no-cache-dir \
+            --disable-pip-version-check
+
+        # Remove unnecessary files to reduce size
+        log_info "Optimizing business layer size..."
+        find "$site_packages_dir" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        find "$site_packages_dir" -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
+        find "$site_packages_dir" -name "*.pyc" -delete 2>/dev/null || true
+    fi
+
     # Copy business logic modules
     log_info "Copying business logic modules..."
-    cp "$API_ROOT/auth.py" "$python_dir/"
     cp "$API_ROOT/config.py" "$python_dir/"
     cp "$API_ROOT/logging_config.py" "$python_dir/"
-    cp "$API_ROOT/validators.py" "$python_dir/"
-    cp "$API_ROOT/extract_pdf_to_csv.py" "$python_dir/"
-    cp "$API_ROOT/main.py" "$python_dir/"
-    
+    cp "$API_ROOT/extract_pdf_data.py" "$python_dir/"
+
+    # Copy formatters directory if it exists
+    if [[ -d "$API_ROOT/formatters" ]]; then
+        log_info "Copying formatters directory..."
+        cp -r "$API_ROOT/formatters" "$python_dir/"
+    fi
+
+    # Copy extractors directory if it exists
+    if [[ -d "$API_ROOT/extractors" ]]; then
+        log_info "Copying extractors directory..."
+        cp -r "$API_ROOT/extractors" "$python_dir/"
+    fi
+
     # Create __init__.py files to make it a proper Python package
     touch "$python_dir/__init__.py"
     
