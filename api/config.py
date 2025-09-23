@@ -3,7 +3,6 @@
 Configuration settings for PDF Extractor Lambda
 """
 
-import os
 from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
@@ -22,13 +21,8 @@ class Settings(BaseSettings):
         description="Comma-separated list of allowed origins"
     )
     
-    # Authentication
+    # Authentication (handled by AWS API Gateway)
     api_key_header: str = Field(default="X-API-KEY", env="API_KEY_HEADER")
-    valid_api_keys: List[str] = Field(
-        default=["2ZbAQyiEIz8hN4xsEsRfckbKPopB4snapYGobrXh"],
-        env="VALID_API_KEYS",
-        description="Comma-separated list of valid API keys"
-    )
 
     # JWT Configuration (for more advanced auth)
     jwt_secret_key: str = Field(default="", env="JWT_SECRET_KEY")
@@ -57,7 +51,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
-    @field_validator('valid_api_keys', 'allowed_origins', 'allowed_file_types')
+    @field_validator('allowed_origins', 'allowed_file_types')
     @classmethod
     def parse_list_fields(cls, v):
         """Parse comma-separated environment variables into lists"""
