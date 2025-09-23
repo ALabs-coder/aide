@@ -52,12 +52,12 @@ variable "pdf_viewer_lambda_name" {
   type        = string
 }
 
-variable "csv_export_lambda_invoke_arn" {
-  description = "CSV Export Lambda function invoke ARN"
+variable "excel_export_lambda_invoke_arn" {
+  description = "Excel Export Lambda function invoke ARN"
   type        = string
 }
 
-variable "csv_export_lambda_name" {
-  description = "CSV Export Lambda function name"
+variable "excel_export_lambda_name" {
+  description = "Excel Export Lambda function name"
   type        = string
 }

@@ -45,11 +45,11 @@ output "functions" {
       invoke_arn  = aws_lambda_function.pdf_viewer.invoke_arn
       version     = aws_lambda_function.pdf_viewer.version
     }
-    csv_export = {
-      name        = aws_lambda_function.csv_export.function_name
-      arn         = aws_lambda_function.csv_export.arn
-      invoke_arn  = aws_lambda_function.csv_export.invoke_arn
-      version     = aws_lambda_function.csv_export.version
+    excel_export = {
+      name        = aws_lambda_function.excel_export.function_name
+      arn         = aws_lambda_function.excel_export.arn
+      invoke_arn  = aws_lambda_function.excel_export.invoke_arn
+      version     = aws_lambda_function.excel_export.version
     }
   }
 }
@@ -110,7 +110,7 @@ output "log_groups" {
     dlq_processor = aws_cloudwatch_log_group.dlq_processor.name
     statement_data = aws_cloudwatch_log_group.statement_data.name
     pdf_viewer = aws_cloudwatch_log_group.pdf_viewer.name
-    csv_export = aws_cloudwatch_log_group.csv_export.name
+    excel_export = aws_cloudwatch_log_group.excel_export.name
   }
 }
 
@@ -123,11 +123,11 @@ output "statement_data_lambda" {
   }
 }
 
-output "csv_export_lambda" {
-  description = "CSV Export Lambda function details"
+output "excel_export_lambda" {
+  description = "Excel Export Lambda function details"
   value = {
-    name        = aws_lambda_function.csv_export.function_name
-    arn         = aws_lambda_function.csv_export.arn
-    invoke_arn  = aws_lambda_function.csv_export.invoke_arn
+    name        = aws_lambda_function.excel_export.function_name
+    arn         = aws_lambda_function.excel_export.arn
+    invoke_arn  = aws_lambda_function.excel_export.invoke_arn
   }
 }

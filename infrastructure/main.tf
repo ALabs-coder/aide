@@ -181,8 +181,8 @@ module "api_gateway" {
   upload_lambda_function_name     = module.lambda.functions.upload.name
   statement_data_lambda_invoke_arn = module.lambda.functions.statement_data.invoke_arn
   statement_data_lambda_name       = module.lambda.functions.statement_data.name
-  csv_export_lambda_invoke_arn     = module.lambda.functions.csv_export.invoke_arn
-  csv_export_lambda_name           = module.lambda.functions.csv_export.name
+  excel_export_lambda_invoke_arn   = module.lambda.functions.excel_export.invoke_arn
+  excel_export_lambda_name         = module.lambda.functions.excel_export.name
   pdf_viewer_lambda_invoke_arn     = module.lambda.functions.pdf_viewer.invoke_arn
   pdf_viewer_lambda_name           = module.lambda.functions.pdf_viewer.name
 

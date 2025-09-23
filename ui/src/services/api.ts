@@ -254,9 +254,9 @@ export const apiService = {
     }
   },
 
-  // Download CSV export
-  async downloadCSV(jobId: string): Promise<void> {
-    const endpoint = `${API_ENDPOINTS.csvExport}/${jobId}`
+  // Download Excel export
+  async downloadExcel(jobId: string): Promise<void> {
+    const endpoint = `${API_ENDPOINTS.excelExport}/${jobId}`
     const fullUrl = buildApiUrl(endpoint)
 
     try {
@@ -269,7 +269,7 @@ export const apiService = {
 
       if (!response.ok) {
         throw new ApiError(
-          `CSV download failed: ${response.statusText}`,
+          `Excel download failed: ${response.statusText}`,
           response.status,
           response
         )
@@ -277,7 +277,7 @@ export const apiService = {
 
       // Get filename from Content-Disposition header or create default
       const contentDisposition = response.headers.get('Content-Disposition')
-      let filename = `bank_statement_${jobId}.csv`
+      let filename = `bank_statement_${jobId}.xlsx`
 
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/)
@@ -301,7 +301,7 @@ export const apiService = {
         throw error
       }
       throw new ApiError(
-        error instanceof Error ? error.message : 'Unknown CSV download error'
+        error instanceof Error ? error.message : 'Unknown Excel download error'
       )
     }
   },

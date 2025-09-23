@@ -25,7 +25,7 @@ export const API_ENDPOINTS = {
   health: '/health',
   statementData: '/statements/data',
   pdf: '/pdf',
-  csvExport: '/statements/csv',
+  excelExport: '/statements/excel',
 } as const
 
 // Helper function to build full URLs

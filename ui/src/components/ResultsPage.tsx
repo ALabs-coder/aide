@@ -74,7 +74,7 @@ export function ResultsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [filteredTransactions, setFilteredTransactions] = useState<TransactionItem[]>([])
   const [totalPages, setTotalPages] = useState(1)
-  const [isDownloadingCSV, setIsDownloadingCSV] = useState(false)
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false)
 
   useEffect(() => {
     const fetchStatementData = async () => {
@@ -134,19 +134,19 @@ export function ResultsPage() {
     setIsPDFViewerCollapsed(isCollapsed)
   }
 
-  const handleDownloadCSV = async () => {
+  const handleDownloadExcel = async () => {
     if (!id) return
 
-    setIsDownloadingCSV(true)
+    setIsDownloadingExcel(true)
     try {
-      await apiService.downloadCSV(id)
+      await apiService.downloadExcel(id)
     } catch (error) {
       const errorMessage = error instanceof ApiError
         ? error.message
-        : 'CSV download failed: Unknown error'
+        : 'Excel download failed: Unknown error'
       alert(errorMessage)
     } finally {
-      setIsDownloadingCSV(false)
+      setIsDownloadingExcel(false)
     }
   }
 
@@ -278,17 +278,17 @@ export function ResultsPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                onClick={handleDownloadCSV}
-                disabled={isDownloadingCSV}
+                onClick={handleDownloadExcel}
+                disabled={isDownloadingExcel}
                 className="flex items-center gap-2"
-                title="Download CSV for Tally import"
+                title="Download Excel file"
               >
-                {isDownloadingCSV ? (
+                {isDownloadingExcel ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Download className="w-4 h-4" />
                 )}
-                {isDownloadingCSV ? 'Exporting...' : 'Export CSV'}
+                {isDownloadingExcel ? 'Exporting...' : 'Export Excel'}
               </Button>
               <Button
                 variant="outline"
