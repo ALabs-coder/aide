@@ -11,6 +11,12 @@ output "api_gateway_details" {
   value       = module.api_gateway.api_gateway
 }
 
+output "api_key" {
+  description = "API Gateway API key"
+  value       = module.api_gateway.api_key
+  sensitive   = true
+}
+
 # Lambda Functions
 output "lambda_functions" {
   description = "Lambda function details"
@@ -54,6 +60,17 @@ output "log_groups" {
   value = {
     lambda_logs     = module.lambda.log_groups
     api_gateway_logs = module.api_gateway.log_group.name
+  }
+}
+
+# Frontend/UI
+output "frontend" {
+  description = "Frontend deployment details"
+  value = {
+    website_url           = module.frontend.website_url
+    cloudfront_domain     = module.frontend.cloudfront_domain_name
+    s3_bucket_name        = module.frontend.bucket_name
+    cloudfront_distribution_id = module.frontend.cloudfront_distribution_id
   }
 }
 

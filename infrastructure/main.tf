@@ -73,7 +73,7 @@ module "dynamodb" {
 # S3 Module - Created second as IAM needs the ARN
 module "s3" {
   source = "./modules/s3"
-  
+
   name_prefix = local.name_prefix
   tags        = local.common_tags
 }
@@ -81,30 +81,52 @@ module "s3" {
 # SQS Module - Created third as IAM needs the ARNs
 module "sqs" {
   source = "./modules/sqs"
-  
+
   name_prefix    = local.name_prefix
   tags           = local.common_tags
   s3_bucket_arn  = module.s3.bucket.arn
-  
+
   depends_on = [module.s3]
 }
+
+# S3 Notification Configuration - REMOVED
+# The Upload Lambda already triggers processing via SQS, so S3 notifications are redundant
+# and were causing duplicate/malformed messages to be sent to the processing queue
+#
+# Previous configuration caused issues:
+# - S3 ObjectCreated events → SQS (S3 event format - wrong format for processor)
+# - Upload Lambda → SQS (correct job format)
+#
+# Now only Upload Lambda sends messages in the correct format
+#
+# resource "aws_s3_bucket_notification" "storage_notification" {
+#   bucket = module.s3.bucket.id
+#   queue {
+#     queue_arn     = module.sqs.processing_queue.arn
+#     events        = ["s3:ObjectCreated:*"]
+#     filter_prefix = "uploads/"
+#     filter_suffix = ".pdf"
+#   }
+#   depends_on = [module.s3, module.sqs]
+# }
 
 # IAM Module - Created fourth as it needs other modules' ARNs
 module "iam" {
   source = "./modules/iam"
-  
+
   name_prefix = local.name_prefix
   aws_region  = var.aws_region
   account_id  = local.account_id
   tags        = local.common_tags
-  
+
   # Dependencies from other modules
   dynamodb_table_arns = module.dynamodb.table_arns
   s3_bucket_arn       = module.s3.bucket.arn
   sqs_queue_arns      = module.sqs.queue_arns
-  
+
   depends_on = [module.dynamodb, module.s3, module.sqs]
 }
+
 
 # Lambda Layers Module - Must be created before Lambda functions
 module "lambda_layers" {
@@ -140,22 +162,49 @@ module "lambda" {
     S3_BUCKET_NAME       = module.s3.bucket.id
     PROCESSING_QUEUE_URL = module.sqs.processing_queue.url
     DLQ_URL             = module.sqs.dlq.url
-    AWS_REGION          = var.aws_region
   }
-  
+
   depends_on = [module.iam, module.s3, module.sqs, module.lambda_layers]
 }
 
 # API Gateway Module
 module "api_gateway" {
   source = "./modules/api_gateway"
-  
+
   name_prefix           = local.name_prefix
   tags                  = local.common_tags
-  
+
   # Dependencies from Lambda module
-  lambda_invoke_arn     = module.lambda.functions.api.invoke_arn
-  lambda_function_name  = module.lambda.functions.api.name
-  
+  lambda_invoke_arn               = module.lambda.functions.api.invoke_arn
+  lambda_function_name            = module.lambda.functions.api.name
+  upload_lambda_invoke_arn        = module.lambda.functions.upload.invoke_arn
+  upload_lambda_function_name     = module.lambda.functions.upload.name
+  statement_data_lambda_invoke_arn = module.lambda.functions.statement_data.invoke_arn
+  statement_data_lambda_name       = module.lambda.functions.statement_data.name
+  csv_export_lambda_invoke_arn     = module.lambda.functions.csv_export.invoke_arn
+  csv_export_lambda_name           = module.lambda.functions.csv_export.name
+  pdf_viewer_lambda_invoke_arn     = module.lambda.functions.pdf_viewer.invoke_arn
+  pdf_viewer_lambda_name           = module.lambda.functions.pdf_viewer.name
+
   depends_on = [module.lambda, module.iam]
+}
+
+# Frontend Module (UI hosting with CloudFront)
+module "frontend" {
+  source = "./modules/frontend"
+
+  name_prefix     = local.name_prefix
+  bucket_name     = "pdf-extractor-ui-static"
+  ui_build_path   = "../ui/dist"
+
+  # API configuration for secure frontend build
+  api_gateway_url = module.api_gateway.api_gateway_url
+  api_key         = module.api_gateway.api_key.value
+
+  # Content Security Policy
+  csp_policy = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+
+  tags = local.common_tags
+
+  depends_on = [module.api_gateway]
 }

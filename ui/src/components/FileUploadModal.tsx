@@ -1,19 +1,23 @@
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, FileText, X, AlertCircle } from 'lucide-react'
+import { Upload, FileText, X, AlertCircle, Loader2, Lock } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 import { Alert, AlertDescription } from './ui/alert'
 
 interface FileUploadModalProps {
   isOpen: boolean
   onClose: () => void
-  onUpload: (file: File) => void
+  onUpload: (file: File, password?: string) => Promise<void>
 }
 
 export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isPasswordProtected, setIsPasswordProtected] = useState<'yes' | 'no' | null>(null)
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string>('')
+  const [isUploading, setIsUploading] = useState(false)
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     setError('')
@@ -44,16 +48,41 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
     maxSize: 10 * 1024 * 1024, // 10MB
   })
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFile) {
-      onUpload(selectedFile)
-      handleClose()
+      // Validation: user must select password protection option
+      if (isPasswordProtected === null) {
+        setError('Please select whether the PDF is password protected')
+        return
+      }
+
+      // Validation: if password protection is "yes", password is required
+      if (isPasswordProtected === 'yes' && !password.trim()) {
+        setError('Password is required for password-protected PDFs')
+        return
+      }
+
+      try {
+        setIsUploading(true)
+        setError('')
+        const finalPassword = isPasswordProtected === 'yes' ? password.trim() : undefined
+        await onUpload(selectedFile, finalPassword)
+        handleClose()
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Upload failed')
+      } finally {
+        setIsUploading(false)
+      }
     }
   }
 
   const handleClose = () => {
+    if (isUploading) return
     setSelectedFile(null)
+    setIsPasswordProtected(null)
+    setPassword('')
     setError('')
+    setIsUploading(false)
     onClose()
   }
 
@@ -144,19 +173,87 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
               </div>
             </div>
           )}
+
+          {selectedFile && (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Lock className="w-4 h-4" />
+                  Is this PDF password protected?
+                </label>
+                <div className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="password-yes"
+                      name="password-protection"
+                      value="yes"
+                      checked={isPasswordProtected === 'yes'}
+                      onChange={() => setIsPasswordProtected('yes')}
+                      disabled={isUploading}
+                      className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                    />
+                    <label htmlFor="password-yes" className="text-sm font-medium">
+                      Yes
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="password-no"
+                      name="password-protection"
+                      value="no"
+                      checked={isPasswordProtected === 'no'}
+                      onChange={() => setIsPasswordProtected('no')}
+                      disabled={isUploading}
+                      className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                    />
+                    <label htmlFor="password-no" className="text-sm font-medium">
+                      No
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {isPasswordProtected === 'yes' && (
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    Enter PDF Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter PDF password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isUploading}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This password is required to unlock and process your PDF
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
 
         <div className="flex justify-end gap-3 pt-4">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} disabled={isUploading}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleUpload} 
-            disabled={!selectedFile}
+          <Button
+            onClick={handleUpload}
+            disabled={!selectedFile || isUploading || isPasswordProtected === null}
             className="flex items-center gap-2"
           >
-            <Upload className="w-4 h-4" />
-            Upload Statement
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            {isUploading ? 'Uploading...' : 'Upload Statement'}
           </Button>
         </div>
       </DialogContent>

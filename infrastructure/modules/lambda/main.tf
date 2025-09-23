@@ -18,7 +18,7 @@ resource "aws_lambda_function" "api" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "production"
+      ENVIRONMENT = "dev"
       FUNCTION_TYPE = "api"
     })
   }
@@ -38,9 +38,189 @@ resource "aws_lambda_function" "api" {
   })
 }
 
+# Upload Lambda function
+resource "aws_lambda_function" "upload" {
+  filename         = "${var.functions_dir}/upload.zip"
+  function_name    = "${var.name_prefix}-upload"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = filebase64sha256("${var.functions_dir}/upload.zip")
+  runtime         = "python3.11"
+  timeout         = 300
+  memory_size     = 1024
+
+  # Lambda layers for dependencies
+  layers = var.api_lambda_layers
+
+  # Environment variables
+  environment {
+    variables = merge(var.environment_variables, {
+      ENVIRONMENT = "dev"
+      FUNCTION_TYPE = "upload"
+    })
+  }
+
+  # Dead letter queue configuration
+  dead_letter_config {
+    target_arn = var.dlq_arn
+  }
+
+  # Reserved concurrency
+  reserved_concurrent_executions = 3
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-upload"
+    Type = "Lambda"
+    Architecture = "layers"
+  })
+}
+
+# Statement Data Lambda function
+resource "aws_lambda_function" "statement_data" {
+  filename         = "${var.functions_dir}/statement_data.zip"
+  function_name    = "${var.name_prefix}-statement-data"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = filebase64sha256("${var.functions_dir}/statement_data.zip")
+  runtime         = "python3.11"
+  timeout         = 60
+  memory_size     = 256
+
+  # Lambda layers for dependencies
+  layers = var.api_lambda_layers
+
+  # Environment variables
+  environment {
+    variables = merge(var.environment_variables, {
+      ENVIRONMENT = "dev"
+      FUNCTION_TYPE = "statement_data"
+    })
+  }
+
+  # Dead letter queue configuration
+  dead_letter_config {
+    target_arn = var.dlq_arn
+  }
+
+  # Reserved concurrency
+  reserved_concurrent_executions = 5
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-statement-data"
+    Type = "Lambda"
+    Architecture = "layers"
+  })
+}
+
 # CloudWatch log group for API Lambda
 resource "aws_cloudwatch_log_group" "api" {
   name              = "/aws/lambda/${aws_lambda_function.api.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# CloudWatch log group for Upload Lambda
+resource "aws_cloudwatch_log_group" "upload" {
+  name              = "/aws/lambda/${aws_lambda_function.upload.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# CloudWatch log group for Statement Data Lambda
+resource "aws_cloudwatch_log_group" "statement_data" {
+  name              = "/aws/lambda/${aws_lambda_function.statement_data.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# CSV Export Lambda function
+resource "aws_lambda_function" "csv_export" {
+  filename         = "${var.functions_dir}/csv_export.zip"
+  function_name    = "${var.name_prefix}-csv-export"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = filebase64sha256("${var.functions_dir}/csv_export.zip")
+  runtime         = "python3.11"
+  timeout         = 60
+  memory_size     = 256
+
+  # Lambda layers for dependencies
+  layers = var.api_lambda_layers
+
+  # Environment variables
+  environment {
+    variables = merge(var.environment_variables, {
+      ENVIRONMENT = "dev"
+      FUNCTION_TYPE = "csv_export"
+    })
+  }
+
+  # Dead letter queue configuration
+  dead_letter_config {
+    target_arn = var.dlq_arn
+  }
+
+  # Reserved concurrency
+  reserved_concurrent_executions = 5
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-csv-export"
+    Type = "Lambda"
+    Architecture = "layers"
+  })
+}
+
+# CloudWatch log group for CSV Export Lambda
+resource "aws_cloudwatch_log_group" "csv_export" {
+  name              = "/aws/lambda/${aws_lambda_function.csv_export.function_name}"
+  retention_in_days = 7
+
+  tags = var.tags
+}
+
+# PDF Viewer Lambda function
+resource "aws_lambda_function" "pdf_viewer" {
+  filename         = "${var.functions_dir}/pdf_viewer.zip"
+  function_name    = "${var.name_prefix}-pdf-viewer"
+  role            = var.lambda_role_arn
+  handler         = "handler.handler"
+  source_code_hash = filebase64sha256("${var.functions_dir}/pdf_viewer.zip")
+  runtime         = "python3.11"
+  timeout         = 180
+  memory_size     = 1024
+
+  # Lambda layers for dependencies
+  layers = var.api_lambda_layers
+
+  # Environment variables
+  environment {
+    variables = merge(var.environment_variables, {
+      ENVIRONMENT = "dev"
+      FUNCTION_TYPE = "pdf_viewer"
+    })
+  }
+
+  # Dead letter queue configuration
+  dead_letter_config {
+    target_arn = var.dlq_arn
+  }
+
+  # Reserved concurrency
+  reserved_concurrent_executions = 5
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-pdf-viewer"
+    Type = "Lambda"
+    Architecture = "layers"
+  })
+}
+
+# CloudWatch log group for PDF Viewer Lambda
+resource "aws_cloudwatch_log_group" "pdf_viewer" {
+  name              = "/aws/lambda/${aws_lambda_function.pdf_viewer.function_name}"
   retention_in_days = 7
 
   tags = var.tags
@@ -63,7 +243,7 @@ resource "aws_lambda_function" "processor" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "production"
+      ENVIRONMENT = "dev"
       FUNCTION_TYPE = "processor"
     })
   }
@@ -118,7 +298,7 @@ resource "aws_lambda_function" "cleanup" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "production"
+      ENVIRONMENT = "dev"
       FUNCTION_TYPE = "cleanup"
       CLEANUP_DAYS = "30"
     })
@@ -181,7 +361,7 @@ resource "aws_lambda_function" "dlq_processor" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "production"
+      ENVIRONMENT = "dev"
       FUNCTION_TYPE = "dlq_processor"
       MAX_RETRY_COUNT = "3"
       ALERT_SNS_TOPIC = var.alert_sns_topic_arn
@@ -208,7 +388,8 @@ resource "aws_lambda_event_source_mapping" "dlq_processor_sqs" {
   event_source_arn = var.dlq_arn
   function_name    = aws_lambda_function.dlq_processor.arn
   batch_size       = 1
-  
+
   # Process messages from DLQ less frequently
   maximum_batching_window_in_seconds = 60
 }
+

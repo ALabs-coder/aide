@@ -234,4 +234,4 @@ docker run --rm -v "$PWD/lambda_packages/functions:/var/task" lambci/lambda:pyth
 3. **Add monitoring** for layer usage and performance
 4. **Consider layer versioning** for rollback capability
 
-Your Lambda layers architecture is now production-ready! 🎉
+Your Lambda layers architecture is now ready! 🎉

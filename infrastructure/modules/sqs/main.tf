@@ -4,6 +4,9 @@
 resource "aws_sqs_queue" "dlq" {
   name = "${var.name_prefix}-dlq"
 
+  # Visibility timeout should be at least 6x the Lambda timeout (300s * 6 = 1800s)
+  visibility_timeout_seconds = 1800
+
   # Message retention period (14 days)
   message_retention_seconds = 1209600
 
@@ -41,35 +44,13 @@ resource "aws_sqs_queue" "processing" {
   })
 }
 
-# Allow S3 to send messages to the processing queue
-data "aws_iam_policy_document" "sqs_policy" {
-  statement {
-    sid    = "AllowS3Publish"
-    effect = "Allow"
-
-    principals {
-      type        = "Service"
-      identifiers = ["s3.amazonaws.com"]
-    }
-
-    actions = [
-      "sqs:SendMessage"
-    ]
-
-    resources = [
-      aws_sqs_queue.processing.arn
-    ]
-
-    condition {
-      test     = "ArnEquals"
-      variable = "aws:SourceArn"
-      values   = [var.s3_bucket_arn]
-    }
-  }
-}
-
-# Apply the policy to the processing queue
-resource "aws_sqs_queue_policy" "processing" {
-  queue_url = aws_sqs_queue.processing.id
-  policy    = data.aws_iam_policy_document.sqs_policy.json
-}
+# SQS Policy - REMOVED S3 permissions
+# S3 bucket notifications have been removed, so S3 no longer needs
+# permission to send messages to the SQS queue.
+# Only Lambda functions now send messages via IAM roles.
+#
+# Previous configuration:
+# - Allowed S3 service to send messages when objects are created
+# - This was causing duplicate messages with wrong format
+#
+# Now only Lambda functions send messages via their IAM roles

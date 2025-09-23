@@ -41,37 +41,77 @@ src/
 └── main.tsx                   # App entry point
 ```
 
-## API Integration
+## Configuration
 
-The UI connects to the API server for file uploads:
+Set up environment variables for API configuration:
 
-```typescript
-// Upload to S3 + DynamoDB
-const response = await fetch('http://localhost:8001/upload', {
-  method: 'POST',
-  body: formData
-});
+```bash
+# Copy example and configure
+cp .env.example .env
+```
+
+Required environment variables:
+- `VITE_API_BASE_URL`: Your API Gateway URL
+- `VITE_API_KEY`: Your API authentication key
+
+Get these values from terraform:
+```bash
+terraform -chdir=../infrastructure output api_gateway_url
+terraform -chdir=../infrastructure output api_key
 ```
 
 ## Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Configure environment (see Configuration section above)
+cp .env.example .env
+
 # Start dev server
 npm run dev
 
-# Build for production  
+# Build for deployment
 npm run build
 
-# Preview production build
+# Preview build
 npm run preview
 
 # Lint code
 npm run lint
 ```
 
-## Environment Configuration
+## API Integration
 
-The app expects the API server running on `http://localhost:8001`. Update the fetch URL in `src/App.tsx` if using a different endpoint.
+The UI uses a centralized API service layer for all API calls:
+
+```typescript
+// Import API service
+import { apiService } from './services/api'
+
+// Fetch data
+const statements = await apiService.fetchStatements()
+
+// Upload files
+const presignedData = await apiService.getUploadUrl({ filename, content_type })
+const result = await apiService.uploadFileToS3(presignedData.upload_url, file)
+```
+
+### API Configuration
+
+All API configuration is centralized in `src/config/api.ts`:
+- Base URL configuration with environment variable support
+- API key management
+- Request header standardization
+- Endpoint definitions
+
+### Error Handling
+
+The API service includes structured error handling:
+- Custom `ApiError` class for API-specific errors
+- Consistent error messages across components
+- Proper HTTP status code handling
 
 ---
 

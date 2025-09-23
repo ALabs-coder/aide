@@ -9,28 +9,10 @@ A FastAPI-based system for uploading PDF bank statements to S3, storing metadata
 - **PDF Extraction**: Extract transaction data from bank statements  
 - **Multiple Formats**: Return data as JSON or CSV
 - **Lifecycle Management**: Automatic cleanup (PDFs: 7 days, Results: 14 days)
-- **Local Development**: Works locally with fallback storage
 
 ## Quick Start
 
-### 1. Local Development
-```bash
-# API Server (Local)
-cd api
-source api_env/bin/activate  # or create: python3 -m venv api_env
-pip install fastapi uvicorn boto3 python-multipart
-python simple_local_server.py
-
-# UI Server  
-cd ui
-npm install && npm run dev
-
-# Access
-API: http://localhost:8001
-UI:  http://localhost:5174
-```
-
-### 2. AWS Deployment
+### AWS Deployment
 ```bash
 # Setup
 npm install -g serverless
@@ -56,16 +38,16 @@ serverless deploy function --function api --stage dev
 
 ### Upload to S3
 ```bash
-curl -X POST "http://localhost:8001/upload" \
+curl -X POST "https://your-api-gateway-url/upload" \
   -F "file=@statement.pdf" \
-  -F "X-API-KEY=test-key-123"
+  -F "X-API-KEY=your-api-key"
 ```
 
 ### Extract Data
 ```bash
-curl -X POST "http://localhost:8001/extract" \
+curl -X POST "https://your-api-gateway-url/extract" \
   -F "file=@statement.pdf" \
-  -F "X-API-KEY=test-key-123"
+  -F "X-API-KEY=your-api-key"
 ```
 
 ## AWS Resources Created
@@ -105,11 +87,8 @@ pdf-extractor-api-dev-storage/
 AWS_REGION=us-east-1
 STAGE=dev
 
-# Local Development  
-AWS_ENDPOINT_URL=http://localhost:8001  # For DynamoDB Local
-
-# API Keys
-VALID_API_KEYS=test-key-123,local-dev-key,demo-key
+# API Keys (handled by AWS API Gateway)
+# No API key environment variables needed - authentication handled by API Gateway
 ```
 
 ### Frontend Integration
@@ -117,13 +96,13 @@ VALID_API_KEYS=test-key-123,local-dev-key,demo-key
 const handleFileUpload = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('X-API-KEY', 'test-key-123');
-  
-  const response = await fetch('http://localhost:8001/upload', {
+  formData.append('X-API-KEY', 'your-api-key');
+
+  const response = await fetch('https://your-api-gateway-url/upload', {
     method: 'POST',
     body: formData
   });
-  
+
   const result = await response.json();
   console.log('Job ID:', result.job_id);
   console.log('S3 Key:', result.s3_key);
@@ -133,9 +112,6 @@ const handleFileUpload = async (file) => {
 ## Development Commands
 
 ```bash
-# Local API server
-python simple_local_server.py
-
 # Deploy to AWS
 serverless deploy --stage dev
 
@@ -153,8 +129,7 @@ serverless logs --function api --stage dev --tail
 
 ```
 api/
-├── simple_local_server.py      # Local dev server with S3/DynamoDB
-├── main.py                     # Production FastAPI app
+├── main.py                     # FastAPI app
 ├── serverless.yml              # AWS infrastructure config
 ├── lambda_handler.py           # AWS Lambda entry point
 ├── extract_pdf_to_csv.py       # PDF processing logic
@@ -169,18 +144,6 @@ ui/
 ```
 
 ## Troubleshooting
-
-### Local Development Issues
-```bash
-# Port conflicts
-lsof -ti:8001 | xargs kill -9
-
-# Missing dependencies  
-pip install boto3 botocore fastapi uvicorn python-multipart
-
-# AWS credentials
-aws configure
-```
 
 ### AWS Deployment Issues
 ```bash
@@ -203,12 +166,10 @@ aws s3 ls pdf-extractor-api-dev-storage
 - ✅ API key authentication required
 - ✅ CORS configured for frontend domains  
 - ✅ Automatic data cleanup via TTL/lifecycle rules
-- ⚠️ Use environment-specific API keys in production
-- ⚠️ Configure proper IAM roles for production deployment
+- ⚠️ Use secure API keys in real deployments
+- ⚠️ Configure proper IAM roles for your AWS account
 
 ---
 
 **Quick Access:**
-- Local API: http://localhost:8001/docs
-- Local UI: http://localhost:5174
 - AWS Console: Search for "pdf-extractor-api-dev"

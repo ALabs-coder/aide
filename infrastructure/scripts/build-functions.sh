@@ -69,6 +69,21 @@ build_function() {
         log_error "  handler.py not found in $function_dir"
         return 1
     fi
+
+    # Special handling for processor function - include extractors and main extraction file
+    if [[ "$function_name" == "processor" ]]; then
+        # Copy extractors directory if it exists
+        if [[ -d "$API_ROOT/extractors" ]]; then
+            cp -r "$API_ROOT/extractors" "$build_dir/"
+            log_info "  Copied extractors directory"
+        fi
+
+        # Copy main extraction file
+        if [[ -f "$API_ROOT/extract_pdf_data.py" ]]; then
+            cp "$API_ROOT/extract_pdf_data.py" "$build_dir/"
+            log_info "  Copied extract_pdf_data.py"
+        fi
+    fi
     
     # Copy any additional function-specific files
     if [[ -f "$function_dir/requirements.txt" ]]; then
@@ -96,7 +111,7 @@ build_all_functions() {
     clean_output
     
     # List of Lambda functions to build
-    local functions=("api" "processor" "cleanup" "dlq_processor")
+    local functions=("api" "upload" "statement_data" "csv_export" "processor" "cleanup" "dlq_processor" "pdf_viewer")
     
     for function_name in "${functions[@]}"; do
         build_function "$function_name"

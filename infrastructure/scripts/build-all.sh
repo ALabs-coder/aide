@@ -41,6 +41,17 @@ log_header() {
 build_all() {
     log_header "PDF Extractor API - Lambda Build Process"
     
+    # Check and activate Python virtual environment
+    local venv_path="$(cd "$SCRIPT_DIR/../.." && pwd)/api/api_env"
+    if [[ -f "$venv_path/bin/activate" ]]; then
+        log_info "Activating Python virtual environment..."
+        source "$venv_path/bin/activate"
+        log_success "Virtual environment activated"
+    else
+        log_warning "Virtual environment not found at $venv_path"
+        log_info "Trying to use system Python/pip..."
+    fi
+    
     # Build layers first
     log_header "Step 1: Building Lambda Layers"
     if bash "$SCRIPT_DIR/build-layers.sh"; then

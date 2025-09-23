@@ -1,5 +1,4 @@
-import React from 'react'
-import { FileText, RotateCcw, Database, Activity } from 'lucide-react'
+import { FileText, RotateCcw, Activity } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 

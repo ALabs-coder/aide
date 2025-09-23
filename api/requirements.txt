@@ -9,14 +9,12 @@ cryptography==45.0.7
 fastapi==0.116.1
 h11==0.16.0
 idna==3.10
-numpy==2.3.3
-pandas==2.3.2
 pdfminer.six==20250506
-pdfplumber==0.11.7
 pillow==11.3.0
 pycparser==2.23
 pydantic==2.11.7
 pydantic_core==2.33.2
+pypdf==5.1.0
 pypdfium2==4.30.0
 python-dateutil==2.9.0.post0
 python-multipart==0.0.20

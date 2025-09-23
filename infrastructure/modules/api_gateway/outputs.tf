@@ -39,3 +39,13 @@ output "log_group" {
     arn  = aws_cloudwatch_log_group.api_gateway.arn
   }
 }
+
+output "api_key" {
+  description = "API Gateway API key"
+  value = {
+    id    = aws_api_gateway_api_key.api_key.id
+    name  = aws_api_gateway_api_key.api_key.name
+    value = aws_api_gateway_api_key.api_key.value
+  }
+  sensitive = true
+}

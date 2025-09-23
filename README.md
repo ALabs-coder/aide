@@ -54,15 +54,6 @@ npm install
 npm run dev
 ```
 
-### 3. API Development
-
-```bash
-cd api
-python -m venv api_env
-source api_env/bin/activate  # On Windows: api_env\Scripts\activate
-pip install -r requirements.txt
-python simple_local_server.py
-```
 
 ## 🛠️ Development Workflow
 

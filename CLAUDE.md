@@ -1,0 +1,1 @@
+- AWS service changes should always be executed using Terraform, debug sessions can use AWS commands to see what is in there but they can run any aws commands to changes aws infrastructure or add infrastructure
