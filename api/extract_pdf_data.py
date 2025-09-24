@@ -10,6 +10,7 @@ from pathlib import Path
 
 # Import bank-specific extractors
 from extractors.union_bank_extractor import extract_union_bank_statement
+from extractors.canara_bank_extractor import extract_canara_bank_statement
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +26,25 @@ def extract_bank_statement_data(pdf_path: str, password: Optional[str] = None, e
 
     Returns:
         Union[Dict, List]: Enhanced format (Dict) or legacy format (List)
+
+    Raises:
+        ValueError: If the bank type is not recognized/supported
     """
     try:
         logger.info(f"Starting extraction for PDF: {pdf_path}")
 
-        # For now, default to Union Bank extractor
-        # TODO: Implement bank classification system to auto-detect bank type
+        # Detect bank type from PDF content
+        detected_bank = detect_bank_type(pdf_path, password)
+        logger.info(f"Detected bank type: {detected_bank}")
 
-        # Use Union Bank extractor
-        result = extract_union_bank_statement(pdf_path, password)
+        # Route to appropriate extractor based on detected bank
+        if detected_bank == "Canara Bank":
+            result = extract_canara_bank_statement(pdf_path, password)
+        elif detected_bank == "Union Bank of India":
+            result = extract_union_bank_statement(pdf_path, password)
+        else:
+            # Raise error for unrecognized bank types
+            raise ValueError(f"Unrecognized bank statement format. Detected bank: {detected_bank}. Currently supported banks: {', '.join(get_supported_banks())}")
 
         if enhanced:
             # Return the complete enhanced format
@@ -61,10 +72,57 @@ def detect_bank_type(pdf_path: str, password: Optional[str] = None) -> str:
     Returns:
         str: Detected bank name
     """
-    # TODO: Implement bank classification logic
-    # For now, default to Union Bank
-    logger.info("Bank detection not implemented yet, defaulting to Union Bank")
-    return "Union Bank of India"
+    try:
+        import pypdf
+
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = pypdf.PdfReader(file)
+
+            # Handle encrypted PDFs
+            if pdf_reader.is_encrypted:
+                if password:
+                    result = pdf_reader.decrypt(password)
+                    if result == 0:
+                        # Try trimmed password
+                        trimmed_password = password.strip()
+                        if trimmed_password != password:
+                            result = pdf_reader.decrypt(trimmed_password)
+                        if result == 0:
+                            logger.warning("Failed to decrypt PDF for bank detection")
+                            return "Union Bank of India"  # Default fallback
+                else:
+                    logger.warning("PDF is encrypted but no password provided for bank detection")
+                    return "Union Bank of India"  # Default fallback
+
+            # Extract text from first page for bank detection
+            if len(pdf_reader.pages) > 0:
+                first_page_text = pdf_reader.pages[0].extract_text().upper()
+
+                # Check for Canara Bank indicators
+                if any(indicator in first_page_text for indicator in [
+                    "CANARA BANK",
+                    "CNRB0",
+                    "IFSC CODE CNRB"
+                ]):
+                    logger.info("Detected Canara Bank from PDF content")
+                    return "Canara Bank"
+
+                # Check for Union Bank indicators
+                if any(indicator in first_page_text for indicator in [
+                    "UNION BANK OF INDIA",
+                    "UNION BANK",
+                    "UBIN0"
+                ]):
+                    logger.info("Detected Union Bank of India from PDF content")
+                    return "Union Bank of India"
+
+        # Default fallback for unrecognized banks
+        logger.info("Could not detect bank type from PDF content")
+        return "Unknown"
+
+    except Exception as e:
+        logger.error(f"Error detecting bank type: {e}")
+        return "Unknown"  # Default fallback
 
 
 def get_supported_banks() -> List[str]:
@@ -75,7 +133,8 @@ def get_supported_banks() -> List[str]:
         List[str]: List of supported bank names
     """
     return [
-        "Union Bank of India"
+        "Union Bank of India",
+        "Canara Bank"
         # TODO: Add other banks as extractors are implemented
         # "HDFC Bank",
         # "State Bank of India",

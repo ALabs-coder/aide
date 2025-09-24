@@ -68,8 +68,8 @@ def clean_amount(amount_str: str) -> str:
     if not amount_str:
         return ""
 
-    # Remove (Dr), (Cr), Dr, Cr indicators and extra whitespace
-    cleaned = re.sub(r'\s*\(?\s*(DR|dr|Dr|CR|cr|Cr)\s*\)?\s*', '', amount_str)
+    # Remove (Dr), (Cr), (De), Dr, Cr, De indicators and extra whitespace
+    cleaned = re.sub(r'\s*\(?\s*(DR|dr|Dr|De|DE|de|CR|cr|Cr)\s*\)?\s*', '', amount_str)
 
     # Remove any leading/trailing whitespace
     cleaned = cleaned.strip()
@@ -93,13 +93,23 @@ def format_transaction_for_display(transaction: Dict[str, Any]) -> Dict[str, Any
     Returns:
         Formatted transaction data
     """
+    # Handle both new format (separate Debit/Credit fields) and legacy format (Amount + Transaction_Type)
+    if 'Debit' in transaction or 'Credit' in transaction:
+        # New format with separate Debit/Credit fields
+        debit_amount = clean_amount(transaction.get('Debit', '')) if transaction.get('Debit') else ''
+        credit_amount = clean_amount(transaction.get('Credit', '')) if transaction.get('Credit') else ''
+    else:
+        # Legacy format with Amount + Transaction_Type
+        debit_amount = clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Debit' else ''
+        credit_amount = clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Credit' else ''
+
     return {
         'serial_no': transaction.get('S.No', ''),
         'txn_date': convert_date_format(transaction.get('Date', ''), "DD/MM/YYYY", "DD-MM-YYYY"),
         'value_date': convert_date_format(transaction.get('Date', ''), "DD/MM/YYYY", "DD-MM-YYYY"),
         'description': transaction.get('Remarks', ''),
-        'debit': clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Debit' else '',
-        'credit': clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Credit' else '',
+        'debit': debit_amount,
+        'credit': credit_amount,
         'balance': clean_amount(transaction.get('Balance', '')),
         'raw_transaction': transaction  # Keep original for reference
     }
@@ -122,6 +132,19 @@ def format_transactions_for_ui(transactions: List[Dict[str, Any]]) -> List[Dict[
 
         # Keep original transaction data and add formatted fields
         ui_transaction = {**transaction}
+
+        # Handle both new format (separate Debit/Credit fields) and legacy format (Amount + Transaction_Type)
+        if 'Debit' in transaction or 'Credit' in transaction:
+            # New format with separate Debit/Credit fields
+            debit_amount = clean_amount(transaction.get('Debit', '')) if transaction.get('Debit') else ''
+            credit_amount = clean_amount(transaction.get('Credit', '')) if transaction.get('Credit') else ''
+            formatted_amount = debit_amount or credit_amount or ''
+        else:
+            # Legacy format with Amount + Transaction_Type
+            debit_amount = clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Debit' else ''
+            credit_amount = clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Credit' else ''
+            formatted_amount = clean_amount(transaction.get('Amount', ''))
+
         ui_transaction.update({
             'formatted_txn_date': formatted['txn_date'],
             'formatted_value_date': formatted['value_date'],
@@ -129,9 +152,9 @@ def format_transactions_for_ui(transactions: List[Dict[str, Any]]) -> List[Dict[
             'formatted_credit': formatted['credit'],
             'formatted_balance': formatted['balance'],
             # Add specific fields for frontend consumption
-            'formatted_amount': clean_amount(transaction.get('Amount', '')),
-            'debit_amount': clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Debit' else '',
-            'credit_amount': clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Credit' else ''
+            'formatted_amount': formatted_amount,
+            'debit_amount': debit_amount,
+            'credit_amount': credit_amount
         })
 
         formatted_transactions.append(ui_transaction)
@@ -149,11 +172,23 @@ def format_transaction_for_frontend(transaction: Dict[str, Any]) -> Dict[str, An
     Returns:
         Transaction with frontend-friendly formatted fields
     """
+    # Handle both new format (separate Debit/Credit fields) and legacy format (Amount + Transaction_Type)
+    if 'Debit' in transaction or 'Credit' in transaction:
+        # New format with separate Debit/Credit fields
+        debit_amount = clean_amount(transaction.get('Debit', '')) if transaction.get('Debit') else ''
+        credit_amount = clean_amount(transaction.get('Credit', '')) if transaction.get('Credit') else ''
+        formatted_amount = debit_amount or credit_amount or ''
+    else:
+        # Legacy format with Amount + Transaction_Type
+        debit_amount = clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Debit' else ''
+        credit_amount = clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Credit' else ''
+        formatted_amount = clean_amount(transaction.get('Amount', ''))
+
     return {
         **transaction,  # Keep all original fields
-        'formatted_amount': clean_amount(transaction.get('Amount', '')),
+        'formatted_amount': formatted_amount,
         'formatted_balance': clean_amount(transaction.get('Balance', '')),
         'formatted_date': convert_date_format(transaction.get('Date', ''), "DD/MM/YYYY", "DD-MM-YYYY"),
-        'debit_amount': clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Debit' else '',
-        'credit_amount': clean_amount(transaction.get('Amount', '')) if transaction.get('Transaction_Type') == 'Credit' else ''
+        'debit_amount': debit_amount,
+        'credit_amount': credit_amount
     }
