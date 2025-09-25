@@ -20,6 +20,10 @@ from formatters.excel_formatter import (
     get_statement_filename
 )
 
+# Import PDF validator
+from validators.pdf_validator import PDFValidator
+from validators.error_codes import ErrorCode
+
 # Setup basic logging for Lambda
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -189,6 +193,53 @@ def process_message(record: Dict, context) -> Dict:
             tmp_file_path = tmp_file.name
         
         try:
+            # Step 1: Validate PDF before processing
+            validator = PDFValidator()
+            validation_result = validator.validate(tmp_file_path, password)
+
+            logger.info("PDF validation completed", extra={
+                "job_id": job_id,
+                "is_valid": validation_result.is_valid,
+                "pdf_type": validation_result.pdf_type.value,
+                "error_code": validation_result.error_code.value,
+                "confidence_score": validation_result.confidence_score
+            })
+
+            # Update job with validation status
+            validation_update = {
+                "validation_status": {
+                    "is_valid": validation_result.is_valid,
+                    "pdf_type": validation_result.pdf_type.value,
+                    "error_code": validation_result.error_code.value,
+                    "confidence_score": validation_result.confidence_score,
+                    "metadata": validation_result.metadata
+                }
+            }
+            update_job_status(job_id, "processing", validation_update)
+
+            # If validation failed, stop processing and return error
+            if not validation_result.is_valid:
+                update_job_status(job_id, "failed", {
+                    "failed_at": context.aws_request_id,
+                    "error": validation_result.error_message,
+                    "error_code": validation_result.error_code.value,
+                    "validation_details": {
+                        "pdf_type": validation_result.pdf_type.value,
+                        "metadata": validation_result.metadata
+                    }
+                })
+
+                return {
+                    "messageId": message_id,
+                    "job_id": job_id,
+                    "status": "failed",
+                    "error": validation_result.error_message,
+                    "error_code": validation_result.error_code.value
+                }
+
+            # Step 2: PDF is valid, proceed with extraction
+            logger.info("PDF validation passed, proceeding with extraction", extra={"job_id": job_id})
+
             # Use enhanced extraction to get complete statement data
             extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True)
         except ValueError as ve:
