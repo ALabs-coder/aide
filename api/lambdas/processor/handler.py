@@ -191,6 +191,27 @@ def process_message(record: Dict, context) -> Dict:
         try:
             # Use enhanced extraction to get complete statement data
             extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True)
+        except ValueError as ve:
+            # Handle unrecognized bank statement format
+            if "Unrecognized bank statement format" in str(ve):
+                logger.warning(f"Unrecognized bank statement format for job {job_id}: {ve}")
+                update_job_status(job_id, "failed", {
+                    "failed_at": context.aws_request_id,
+                    "error": str(ve),
+                    "error_type": "unrecognized_bank_format"
+                })
+                return {
+                    "messageId": message_id,
+                    "job_id": job_id,
+                    "status": "failed",
+                    "error": "unrecognized_bank_format",
+                    "message": str(ve)
+                }
+            else:
+                # Re-raise other ValueError exceptions
+                raise
+
+        try:
 
             # Handle both enhanced (dict) and legacy (list) results
             if isinstance(extraction_result, dict):
