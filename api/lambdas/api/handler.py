@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 import os
 import boto3
+from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 import base64
 import io
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-api-storage')
 JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-api-jobs')
+BANK_CONFIGURATIONS_TABLE = os.getenv('BANK_CONFIGURATIONS_TABLE', 'dev-bank-configurations')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 
 # Initialize AWS clients
@@ -84,6 +86,9 @@ def handler(event, context):
             # Extract job_id from path /pdf/{job_id}
             job_id = path.split('/')[-1]
             return handle_get_pdf(job_id)
+
+        elif path == '/configurations/banks' and http_method == 'GET':
+            return handle_get_bank_configurations()
 
         else:
             return {
@@ -257,5 +262,82 @@ def handle_get_statements(event):
                 'total': 0,
                 'status': 'error'
             }, cls=DecimalEncoder)
+        }
+
+
+def handle_get_bank_configurations():
+    """Handle GET /configurations/banks endpoint"""
+    try:
+        table = dynamodb.Table(BANK_CONFIGURATIONS_TABLE)
+
+        # Query all bank configurations with status ACTIVE
+        response = table.query(
+            KeyConditionExpression=Key('PK').eq('BANK_CONFIG'),
+            FilterExpression='#status = :status',
+            ExpressionAttributeNames={
+                '#status': 'Status'
+            },
+            ExpressionAttributeValues={
+                ':status': 'ACTIVE'
+            }
+        )
+
+        # Transform to minimal response format
+        active_banks = []
+        for item in response.get('Items', []):
+            active_banks.append({
+                'id': item.get('BankCode'),
+                'name': item.get('BankName')
+            })
+
+        # Sort alphabetically by bank name
+        active_banks.sort(key=lambda x: x['name'])
+
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, Authorization'
+            },
+            'body': json.dumps({
+                'status': 'success',
+                'data': active_banks,
+                'count': len(active_banks)
+            })
+        }
+
+    except ClientError as e:
+        logger.error(f"DynamoDB error in handle_get_bank_configurations: {e}", exc_info=True)
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'status': 'error',
+                'error': 'Database Error',
+                'message': 'Failed to retrieve bank configurations',
+                'data': [],
+                'count': 0
+            })
+        }
+    except Exception as e:
+        logger.error(f"Error in handle_get_bank_configurations: {e}", exc_info=True)
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'status': 'error',
+                'error': 'Internal Server Error',
+                'message': 'Failed to retrieve bank configurations',
+                'data': [],
+                'count': 0
+            })
         }
 

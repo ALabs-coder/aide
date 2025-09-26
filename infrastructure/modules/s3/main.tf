@@ -2,10 +2,10 @@
 
 # S3 bucket for file storage
 resource "aws_s3_bucket" "storage" {
-  bucket = "${var.name_prefix}-storage"
+  bucket = "${var.name_prefix}-pdf-extractor-storage"
 
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-storage"
+    Name = "${var.name_prefix}-pdf-extractor-storage"
     Type = "S3"
   })
 }

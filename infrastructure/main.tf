@@ -58,8 +58,8 @@ locals {
     ManagedBy = "Terraform"
   }
   
-  # Simple resource naming
-  name_prefix = var.project_name
+  # Simple resource naming - using 'dev' prefix for dev deployment
+  name_prefix = "dev"
 }
 
 # DynamoDB Module - Created first as IAM needs the ARNs
@@ -156,12 +156,13 @@ module "lambda" {
   
   # Environment variables for all functions
   environment_variables = {
-    JOBS_TABLE_NAME      = module.dynamodb.jobs_table.name
-    TRANSACTIONS_TABLE   = module.dynamodb.transactions_table.name
-    USAGE_TABLE_NAME     = module.dynamodb.usage_table.name
-    S3_BUCKET_NAME       = module.s3.bucket.id
-    PROCESSING_QUEUE_URL = module.sqs.processing_queue.url
-    DLQ_URL             = module.sqs.dlq.url
+    JOBS_TABLE_NAME              = module.dynamodb.jobs_table.name
+    TRANSACTIONS_TABLE           = module.dynamodb.transactions_table.name
+    USAGE_TABLE_NAME             = module.dynamodb.usage_table.name
+    BANK_CONFIGURATIONS_TABLE    = module.dynamodb.bank_configurations_table.name
+    S3_BUCKET_NAME               = module.s3.bucket.id
+    PROCESSING_QUEUE_URL         = module.sqs.processing_queue.url
+    DLQ_URL                      = module.sqs.dlq.url
   }
 
   depends_on = [module.iam, module.s3, module.sqs, module.lambda_layers]

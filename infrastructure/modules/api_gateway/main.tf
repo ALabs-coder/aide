@@ -61,6 +61,7 @@ resource "aws_api_gateway_deployment" "api" {
     aws_api_gateway_method.statements_data_method,
     aws_api_gateway_method.statements_excel_method,
     aws_api_gateway_method.pdf_method,
+    aws_api_gateway_method.configurations_banks_method,
     aws_api_gateway_method.proxy_method,
     aws_api_gateway_method.proxy_root_method,
     aws_api_gateway_method.cors_statements_method,
@@ -68,6 +69,7 @@ resource "aws_api_gateway_deployment" "api" {
     aws_api_gateway_method.cors_statements_data_method,
     aws_api_gateway_method.cors_statements_excel_method,
     aws_api_gateway_method.cors_pdf_method,
+    aws_api_gateway_method.cors_configurations_banks_method,
     aws_api_gateway_method.cors_method,
     aws_api_gateway_method.cors_root_method,
     aws_api_gateway_integration.statements_integration,
@@ -75,6 +77,7 @@ resource "aws_api_gateway_deployment" "api" {
     aws_api_gateway_integration.statements_data_integration,
     aws_api_gateway_integration.statements_excel_integration,
     aws_api_gateway_integration.pdf_integration,
+    aws_api_gateway_integration.configurations_banks_integration,
     aws_api_gateway_integration.proxy_integration,
     aws_api_gateway_integration.proxy_root_integration,
     aws_api_gateway_integration.cors_statements_integration,
@@ -82,6 +85,7 @@ resource "aws_api_gateway_deployment" "api" {
     aws_api_gateway_integration.cors_statements_data_integration,
     aws_api_gateway_integration.cors_statements_excel_integration,
     aws_api_gateway_integration.cors_pdf_integration,
+    aws_api_gateway_integration.cors_configurations_banks_integration,
     aws_api_gateway_integration.cors_integration,
     aws_api_gateway_integration.cors_root_integration,
   ]
@@ -97,12 +101,15 @@ resource "aws_api_gateway_deployment" "api" {
       aws_api_gateway_resource.statements_excel_job_id.id,
       aws_api_gateway_resource.pdf.id,
       aws_api_gateway_resource.pdf_job_id.id,
+      aws_api_gateway_resource.configurations.id,
+      aws_api_gateway_resource.configurations_banks.id,
       aws_api_gateway_resource.proxy.id,
       aws_api_gateway_method.statements_method.id,
       aws_api_gateway_method.upload_method.id,
       aws_api_gateway_method.statements_data_method.id,
       aws_api_gateway_method.statements_excel_method.id,
       aws_api_gateway_method.pdf_method.id,
+      aws_api_gateway_method.configurations_banks_method.id,
       aws_api_gateway_method.proxy_method.id,
       aws_api_gateway_method.proxy_root_method.id,
       aws_api_gateway_method.cors_statements_method.id,
@@ -110,6 +117,7 @@ resource "aws_api_gateway_deployment" "api" {
       aws_api_gateway_method.cors_statements_data_method.id,
       aws_api_gateway_method.cors_statements_excel_method.id,
       aws_api_gateway_method.cors_pdf_method.id,
+      aws_api_gateway_method.cors_configurations_banks_method.id,
       aws_api_gateway_method.cors_method.id,
       aws_api_gateway_method.cors_root_method.id,
       aws_api_gateway_integration.statements_integration.id,
@@ -117,6 +125,7 @@ resource "aws_api_gateway_deployment" "api" {
       aws_api_gateway_integration.statements_data_integration.id,
       aws_api_gateway_integration.statements_excel_integration.id,
       aws_api_gateway_integration.pdf_integration.id,
+      aws_api_gateway_integration.configurations_banks_integration.id,
       aws_api_gateway_integration.proxy_integration.id,
       aws_api_gateway_integration.proxy_root_integration.id,
       aws_api_gateway_integration.cors_statements_integration.id,
@@ -124,6 +133,7 @@ resource "aws_api_gateway_deployment" "api" {
       aws_api_gateway_integration.cors_statements_data_integration.id,
       aws_api_gateway_integration.cors_statements_excel_integration.id,
       aws_api_gateway_integration.cors_pdf_integration.id,
+      aws_api_gateway_integration.cors_configurations_banks_integration.id,
       aws_api_gateway_integration.cors_integration.id,
       aws_api_gateway_integration.cors_root_integration.id,
     ]))
@@ -241,6 +251,20 @@ resource "aws_api_gateway_resource" "pdf_job_id" {
 }
 
 
+# Configurations resource
+resource "aws_api_gateway_resource" "configurations" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
+  path_part   = "configurations"
+}
+
+# Banks resource under configurations
+resource "aws_api_gateway_resource" "configurations_banks" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.configurations.id
+  path_part   = "banks"
+}
+
 # Proxy resource to capture all paths
 resource "aws_api_gateway_resource" "proxy" {
   rest_api_id = aws_api_gateway_rest_api.api.id
@@ -295,6 +319,15 @@ resource "aws_api_gateway_method" "pdf_method" {
   request_parameters = {
     "method.request.path.job_id" = true
   }
+}
+
+# Method for configurations/banks resource (GET method)
+resource "aws_api_gateway_method" "configurations_banks_method" {
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.configurations_banks.id
+  http_method   = "GET"
+  authorization = "NONE"
+  api_key_required = true
 }
 
 
@@ -386,6 +419,20 @@ resource "aws_api_gateway_integration" "pdf_integration" {
   integration_http_method = "POST"
   type                   = "AWS_PROXY"
   uri                    = var.pdf_viewer_lambda_invoke_arn
+
+  # Timeout configuration
+  timeout_milliseconds = 29000
+}
+
+# Integration for configurations/banks resource
+resource "aws_api_gateway_integration" "configurations_banks_integration" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_method.configurations_banks_method.resource_id
+  http_method = aws_api_gateway_method.configurations_banks_method.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = var.lambda_invoke_arn
 
   # Timeout configuration
   timeout_milliseconds = 29000
@@ -722,6 +769,58 @@ resource "aws_api_gateway_integration_response" "cors_pdf_integration_response" 
   resource_id = aws_api_gateway_resource.pdf_job_id.id
   http_method = aws_api_gateway_method.cors_pdf_method.http_method
   status_code = aws_api_gateway_method_response.cors_pdf_method_response.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+}
+
+# CORS configuration for configurations/banks endpoint
+resource "aws_api_gateway_method" "cors_configurations_banks_method" {
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.configurations_banks.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+  api_key_required = false
+}
+
+resource "aws_api_gateway_integration" "cors_configurations_banks_integration" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.configurations_banks.id
+  http_method = aws_api_gateway_method.cors_configurations_banks_method.http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = jsonencode({
+      statusCode = 200
+    })
+  }
+}
+
+resource "aws_api_gateway_method_response" "cors_configurations_banks_method_response" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.configurations_banks.id
+  http_method = aws_api_gateway_method.cors_configurations_banks_method.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "cors_configurations_banks_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  resource_id = aws_api_gateway_resource.configurations_banks.id
+  http_method = aws_api_gateway_method.cors_configurations_banks_method.http_method
+  status_code = aws_api_gateway_method_response.cors_configurations_banks_method_response.status_code
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"

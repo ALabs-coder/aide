@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
   statementData: '/statements/data',
   pdf: '/pdf',
   excelExport: '/statements/excel',
+  configurationsBank: '/configurations/banks',
 } as const
 
 // Helper function to build full URLs
