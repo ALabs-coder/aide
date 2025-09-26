@@ -24,10 +24,16 @@ class DecimalEncoder(json.JSONEncoder):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuration
-S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-api-storage')
-JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-api-jobs')
-AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
+# Configuration - fail fast if environment variables are missing
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
+JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME')
+AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')  # AWS region can have a reasonable default
+
+# Validate required environment variables
+if not S3_BUCKET_NAME:
+    raise ValueError("S3_BUCKET_NAME environment variable is required")
+if not JOBS_TABLE_NAME:
+    raise ValueError("JOBS_TABLE_NAME environment variable is required")
 
 # Initialize AWS clients
 s3_client = boto3.client('s3', region_name=AWS_REGION)

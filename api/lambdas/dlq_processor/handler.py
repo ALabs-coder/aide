@@ -27,11 +27,17 @@ sqs_client = boto3.client('sqs')
 dynamodb = boto3.resource('dynamodb')
 sns_client = boto3.client('sns')
 
-# Environment variables
-JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-jobs')
-S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-storage')
+# Environment variables - fail fast if missing
+JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME')
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 ALERT_SNS_TOPIC = os.getenv('ALERT_SNS_TOPIC')
-MAX_RETRY_COUNT = int(os.getenv('MAX_RETRY_COUNT', '3'))
+MAX_RETRY_COUNT = int(os.getenv('MAX_RETRY_COUNT', '3'))  # Reasonable default for retry count
+
+# Validate required environment variables
+if not JOBS_TABLE_NAME:
+    raise ValueError("JOBS_TABLE_NAME environment variable is required")
+if not S3_BUCKET_NAME:
+    raise ValueError("S3_BUCKET_NAME environment variable is required")
 
 def handler(event, context):
     """

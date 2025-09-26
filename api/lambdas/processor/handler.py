@@ -33,9 +33,15 @@ s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
 dynamodb = boto3.resource('dynamodb')
 
-# Environment variables
-JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-jobs')
-S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-storage')
+# Environment variables - fail fast if missing
+JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME')
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
+
+# Validate required environment variables
+if not JOBS_TABLE_NAME:
+    raise ValueError("JOBS_TABLE_NAME environment variable is required")
+if not S3_BUCKET_NAME:
+    raise ValueError("S3_BUCKET_NAME environment variable is required")
 
 def convert_floats_to_decimal(obj):
     """Convert float values to Decimal for DynamoDB compatibility"""

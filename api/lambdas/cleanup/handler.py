@@ -25,10 +25,16 @@ logger = logging.getLogger(__name__)
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
-# Environment variables
-JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-jobs')
-S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-storage')
-CLEANUP_DAYS = int(os.getenv('CLEANUP_DAYS', '30'))  # Default 30 days
+# Environment variables - fail fast if missing
+JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME')
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
+CLEANUP_DAYS = int(os.getenv('CLEANUP_DAYS', '30'))  # Reasonable default for cleanup period
+
+# Validate required environment variables
+if not JOBS_TABLE_NAME:
+    raise ValueError("JOBS_TABLE_NAME environment variable is required")
+if not S3_BUCKET_NAME:
+    raise ValueError("S3_BUCKET_NAME environment variable is required")
 
 def handler(event, context):
     """
