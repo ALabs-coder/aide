@@ -33,10 +33,17 @@ output "s3_bucket" {
 output "dynamodb_tables" {
   description = "DynamoDB table details"
   value = {
-    jobs         = module.dynamodb.jobs_table
-    transactions = module.dynamodb.transactions_table
-    usage        = module.dynamodb.usage_table
+    jobs                 = module.dynamodb.jobs_table
+    transactions         = module.dynamodb.transactions_table
+    usage                = module.dynamodb.usage_table
+    bank_configurations  = module.dynamodb.bank_configurations_table
   }
+}
+
+# Bank Configuration Table (for easy access)
+output "bank_configurations_table_name" {
+  description = "Bank configurations table name"
+  value       = module.dynamodb.bank_configurations_table.name
 }
 
 # SQS Queues

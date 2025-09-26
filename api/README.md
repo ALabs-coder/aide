@@ -39,15 +39,15 @@ serverless deploy function --function api --stage dev
 ### Upload to S3
 ```bash
 curl -X POST "https://your-api-gateway-url/upload" \
-  -F "file=@statement.pdf" \
-  -F "X-API-KEY=your-api-key"
+  -H "X-API-Key: your-api-key" \
+  -F "file=@statement.pdf"
 ```
 
 ### Extract Data
 ```bash
 curl -X POST "https://your-api-gateway-url/extract" \
-  -F "file=@statement.pdf" \
-  -F "X-API-KEY=your-api-key"
+  -H "X-API-Key: your-api-key" \
+  -F "file=@statement.pdf"
 ```
 
 ## AWS Resources Created
@@ -96,10 +96,12 @@ STAGE=dev
 const handleFileUpload = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('X-API-KEY', 'your-api-key');
 
   const response = await fetch('https://your-api-gateway-url/upload', {
     method: 'POST',
+    headers: {
+      'X-API-Key': 'your-api-key'
+    },
     body: formData
   });
 

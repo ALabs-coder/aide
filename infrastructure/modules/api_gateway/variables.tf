@@ -5,6 +5,11 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "stage_name" {
+  description = "API Gateway stage name"
+  type        = string
+}
+
 
 variable "tags" {
   description = "Common resource tags"

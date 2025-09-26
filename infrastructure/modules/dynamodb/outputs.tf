@@ -27,20 +27,31 @@ output "usage_table" {
   }
 }
 
+output "bank_configurations_table" {
+  description = "DynamoDB bank configurations table"
+  value = {
+    name = aws_dynamodb_table.bank_configurations.name
+    arn  = aws_dynamodb_table.bank_configurations.arn
+    id   = aws_dynamodb_table.bank_configurations.id
+  }
+}
+
 output "table_arns" {
   description = "List of all DynamoDB table ARNs"
   value = [
     aws_dynamodb_table.jobs.arn,
     aws_dynamodb_table.transactions.arn,
     aws_dynamodb_table.usage.arn,
+    aws_dynamodb_table.bank_configurations.arn,
   ]
 }
 
 output "table_names" {
   description = "Map of table names"
   value = {
-    jobs         = aws_dynamodb_table.jobs.name
-    transactions = aws_dynamodb_table.transactions.name
-    usage        = aws_dynamodb_table.usage.name
+    jobs                 = aws_dynamodb_table.jobs.name
+    transactions         = aws_dynamodb_table.transactions.name
+    usage               = aws_dynamodb_table.usage.name
+    bank_configurations = aws_dynamodb_table.bank_configurations.name
   }
 }

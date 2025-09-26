@@ -18,7 +18,7 @@ resource "aws_lambda_function" "api" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "api"
     })
   }
@@ -55,7 +55,7 @@ resource "aws_lambda_function" "upload" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "upload"
     })
   }
@@ -92,7 +92,7 @@ resource "aws_lambda_function" "statement_data" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "statement_data"
     })
   }
@@ -153,7 +153,7 @@ resource "aws_lambda_function" "excel_export" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "excel_export"
     })
   }
@@ -198,7 +198,7 @@ resource "aws_lambda_function" "pdf_viewer" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "pdf_viewer"
     })
   }
@@ -243,7 +243,7 @@ resource "aws_lambda_function" "processor" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "processor"
     })
   }
@@ -298,7 +298,7 @@ resource "aws_lambda_function" "cleanup" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "cleanup"
       CLEANUP_DAYS = "30"
     })
@@ -361,7 +361,7 @@ resource "aws_lambda_function" "dlq_processor" {
   # Environment variables
   environment {
     variables = merge(var.environment_variables, {
-      ENVIRONMENT = "dev"
+      ENVIRONMENT = var.environment_name
       FUNCTION_TYPE = "dlq_processor"
       MAX_RETRY_COUNT = "3"
       ALERT_SNS_TOPIC = var.alert_sns_topic_arn

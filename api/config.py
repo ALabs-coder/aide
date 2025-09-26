@@ -23,11 +23,6 @@ class Settings(BaseSettings):
     
     # Authentication (handled by AWS API Gateway)
     api_key_header: str = Field(default="X-API-KEY", env="API_KEY_HEADER")
-
-    # JWT Configuration (for more advanced auth)
-    jwt_secret_key: str = Field(default="", env="JWT_SECRET_KEY")
-    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
-    jwt_expiration_hours: int = Field(default=24, env="JWT_EXPIRATION_HOURS")
     
     # File Upload Limits
     max_file_size_mb: int = Field(default=25, env="MAX_FILE_SIZE_MB")  # Lambda has 50MB limit

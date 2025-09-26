@@ -58,8 +58,8 @@ locals {
     ManagedBy = "Terraform"
   }
   
-  # Simple resource naming
-  name_prefix = var.project_name
+  # Environment-specific resource naming
+  name_prefix = var.environment
 }
 
 # DynamoDB Module - Created first as IAM needs the ARNs
@@ -140,10 +140,11 @@ module "lambda_layers" {
 # Lambda Module - Now uses layers for dependencies
 module "lambda" {
   source = "./modules/lambda"
-  
-  name_prefix  = local.name_prefix
-  tags         = local.common_tags
-  functions_dir = "lambda_packages/functions"
+
+  name_prefix     = local.name_prefix
+  environment_name = var.environment
+  tags            = local.common_tags
+  functions_dir   = "lambda_packages/functions"
   
   # Dependencies from other modules
   lambda_role_arn      = module.iam.lambda_role.arn
@@ -156,12 +157,13 @@ module "lambda" {
   
   # Environment variables for all functions
   environment_variables = {
-    JOBS_TABLE_NAME      = module.dynamodb.jobs_table.name
-    TRANSACTIONS_TABLE   = module.dynamodb.transactions_table.name
-    USAGE_TABLE_NAME     = module.dynamodb.usage_table.name
-    S3_BUCKET_NAME       = module.s3.bucket.id
-    PROCESSING_QUEUE_URL = module.sqs.processing_queue.url
-    DLQ_URL             = module.sqs.dlq.url
+    JOBS_TABLE_NAME              = module.dynamodb.jobs_table.name
+    TRANSACTIONS_TABLE           = module.dynamodb.transactions_table.name
+    USAGE_TABLE_NAME             = module.dynamodb.usage_table.name
+    BANK_CONFIGURATIONS_TABLE    = module.dynamodb.bank_configurations_table.name
+    S3_BUCKET_NAME               = module.s3.bucket.id
+    PROCESSING_QUEUE_URL         = module.sqs.processing_queue.url
+    DLQ_URL                      = module.sqs.dlq.url
   }
 
   depends_on = [module.iam, module.s3, module.sqs, module.lambda_layers]
@@ -171,8 +173,9 @@ module "lambda" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  name_prefix           = local.name_prefix
-  tags                  = local.common_tags
+  name_prefix  = local.name_prefix
+  stage_name   = var.api_gateway_stage
+  tags         = local.common_tags
 
   # Dependencies from Lambda module
   lambda_invoke_arn               = module.lambda.functions.api.invoke_arn

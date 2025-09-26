@@ -91,6 +91,17 @@ export interface PDFResponse {
   filename: string
 }
 
+export interface BankConfiguration {
+  id: string
+  name: string
+}
+
+export interface BankConfigurationsResponse {
+  status: string
+  data: BankConfiguration[]
+  count: number
+}
+
 // Error handling
 export class ApiError extends Error {
   public status?: number
@@ -304,6 +315,13 @@ export const apiService = {
         error instanceof Error ? error.message : 'Unknown Excel download error'
       )
     }
+  },
+
+  // Get active bank configurations
+  async getBankConfigurations(): Promise<BankConfigurationsResponse> {
+    return apiRequest<BankConfigurationsResponse>(
+      buildApiUrl(API_ENDPOINTS.configurationsBank)
+    )
   },
 
   // Health check

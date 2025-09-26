@@ -5,6 +5,11 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "environment_name" {
+  description = "Environment name for Lambda functions"
+  type        = string
+}
+
 variable "tags" {
   description = "Common resource tags"
   type        = map(string)

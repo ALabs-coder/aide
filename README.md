@@ -71,9 +71,11 @@ cd infrastructure
 
 ### Environment Variables
 ```bash
-# Set before deployment
-export TF_VAR_valid_api_keys="your-api-key-1,your-api-key-2"
-export TF_VAR_jwt_secret_key="your-jwt-secret-key"
+# Set before deployment (if not using tfvars files)
+export TF_VAR_environment="dev"
+export TF_VAR_aws_region="us-east-1"
+export TF_VAR_project_name="pdf-extractor-api"
+export TF_VAR_api_gateway_stage="v1"
 ```
 
 ## 📁 Component Overview

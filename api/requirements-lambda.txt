@@ -10,10 +10,9 @@ botocore==1.35.0
 # PDF processing
 pdfplumber==0.11.7
 
-# Authentication and validation
+# Authentication and validation (handled by API Gateway)
 pydantic==2.11.7
 pydantic-settings==2.6.0
-PyJWT==2.8.0
 
 # File type detection
 python-magic==0.4.27
