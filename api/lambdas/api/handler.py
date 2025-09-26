@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'pdf-extractor-api-storage')
 JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME', 'pdf-extractor-api-jobs')
-BANK_CONFIGURATIONS_TABLE = os.getenv('BANK_CONFIGURATIONS_TABLE', 'dev-bank-configurations')
+BANK_CONFIGURATIONS_TABLE = os.getenv('BANK_CONFIGURATIONS_TABLE', 'bank-configurations')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 
 # Initialize AWS clients

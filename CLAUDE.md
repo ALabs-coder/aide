@@ -90,12 +90,35 @@ terraform apply                 # Deploy function updates only
 - Always rebuild layers after dependency changes: `./scripts/build-layers.sh`
 - Deploy both layers and functions after significant changes: `./scripts/build-all.sh`
 
-### Environment Variables
-Required for deployment:
+### Environment Variables & Configuration
+
+#### Local Development Setup
+1. **Create local configuration** (first-time setup):
+   ```bash
+   cd infrastructure
+   cp terraform.tfvars.example local.tfvars  # Create your local copy
+   # Edit local.tfvars with your actual values
+   ```
+
+2. **Use local configuration**:
+   ```bash
+   # For all terraform commands in local development
+   terraform plan -var-file="local.tfvars"
+   terraform apply -var-file="local.tfvars"
+   ```
+
+#### Alternative: Environment Variables (Legacy Method)
 ```bash
-export TF_VAR_valid_api_keys="your-api-key-1,your-api-key-2"
-export TF_VAR_jwt_secret_key="your-jwt-secret-key"
+export TF_VAR_environment="dev"
+export TF_VAR_aws_region="us-east-1"
+export TF_VAR_project_name="pdf-extractor-api"
+export TF_VAR_api_gateway_stage="v1"
 ```
+
+#### Configuration Files Structure
+- `terraform.tfvars` - Template with placeholders for deployment (checked into git)
+- `terraform.tfvars.example` - Example template for local development (checked into git)
+- `local.tfvars` - Your actual local values (never commit - gitignored)
 
 ### Data Persistence Strategy
 - **DynamoDB tables**: Data persists across deployments

@@ -222,11 +222,6 @@ build_business_layer() {
         cp -r "$API_ROOT/extractors" "$python_dir/"
     fi
 
-    # Copy validators directory if it exists
-    if [[ -d "$API_ROOT/validators" ]]; then
-        log_info "Copying validators directory..."
-        cp -r "$API_ROOT/validators" "$python_dir/"
-    fi
 
     # Create __init__.py files to make it a proper Python package
     touch "$python_dir/__init__.py"

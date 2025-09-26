@@ -11,3 +11,15 @@ variable "aws_region" {
   type        = string
   default     = "us-east-1"
 }
+
+variable "environment" {
+  description = "Environment name (dev, prod, etc.)"
+  type        = string
+  default     = "dev"
+}
+
+variable "api_gateway_stage" {
+  description = "API Gateway stage name"
+  type        = string
+  default     = "v1"
+}

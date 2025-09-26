@@ -58,8 +58,8 @@ locals {
     ManagedBy = "Terraform"
   }
   
-  # Simple resource naming - using 'dev' prefix for dev deployment
-  name_prefix = "dev"
+  # Environment-specific resource naming
+  name_prefix = var.environment
 }
 
 # DynamoDB Module - Created first as IAM needs the ARNs
@@ -140,10 +140,11 @@ module "lambda_layers" {
 # Lambda Module - Now uses layers for dependencies
 module "lambda" {
   source = "./modules/lambda"
-  
-  name_prefix  = local.name_prefix
-  tags         = local.common_tags
-  functions_dir = "lambda_packages/functions"
+
+  name_prefix     = local.name_prefix
+  environment_name = var.environment
+  tags            = local.common_tags
+  functions_dir   = "lambda_packages/functions"
   
   # Dependencies from other modules
   lambda_role_arn      = module.iam.lambda_role.arn
@@ -172,8 +173,9 @@ module "lambda" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  name_prefix           = local.name_prefix
-  tags                  = local.common_tags
+  name_prefix  = local.name_prefix
+  stage_name   = var.api_gateway_stage
+  tags         = local.common_tags
 
   # Dependencies from Lambda module
   lambda_invoke_arn               = module.lambda.functions.api.invoke_arn
