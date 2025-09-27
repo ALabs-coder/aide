@@ -6,7 +6,9 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Alert, AlertDescription } from './ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { apiService, type BankConfiguration } from '../services/api'
+import { Skeleton } from './ui/skeleton'
+import { type BankConfiguration } from '../services/api'
+import { bankCache } from '../services/bankCache'
 
 interface FileUploadModalProps {
   isOpen: boolean
@@ -45,19 +47,27 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
     }
   }, [])
 
-  // Fetch banks when modal opens
+  // Fetch banks when modal opens with caching
   useEffect(() => {
-    if (isOpen && banks.length === 0) {
+    if (isOpen) {
+      // Immediately show cached data if available
+      const cachedBanks = bankCache.getCachedBanks()
+      if (cachedBanks.length > 0) {
+        setBanks(cachedBanks)
+      }
+
+      // Always try to fetch fresh data (will use cache if valid)
       fetchBanks()
     }
-  }, [isOpen, banks.length])
+  }, [isOpen])
 
   const fetchBanks = async () => {
-    setLoadingBanks(true)
+    setLoadingBanks(bankCache.isLoading())
     setBanksError('')
+
     try {
-      const response = await apiService.getBankConfigurations()
-      setBanks(response.data || [])
+      const freshBanks = await bankCache.getBanks()
+      setBanks(freshBanks)
     } catch (error) {
       setBanksError('Unable to load banks. Please check your connection.')
       console.error('Failed to fetch banks:', error)
@@ -219,16 +229,26 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
                 </label>
 
                 {loadingBanks ? (
-                  <div className="flex items-center gap-2 p-3 border rounded">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Loading banks...</span>
+                  <div className="space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span className="text-xs text-muted-foreground">Loading banks...</span>
+                    </div>
                   </div>
                 ) : banksError ? (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="flex items-center justify-between">
                       <span>{banksError}</span>
-                      <Button size="sm" variant="outline" onClick={fetchBanks}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          bankCache.clearCache()
+                          fetchBanks()
+                        }}
+                      >
                         Retry
                       </Button>
                     </AlertDescription>
