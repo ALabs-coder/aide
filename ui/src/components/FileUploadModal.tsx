@@ -219,119 +219,22 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
           )}
 
           {selectedFile && (
-            <div className="space-y-4">
-              {/* Bank Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Building className="w-4 h-4" />
-                  Select Bank
-                  <span className="text-red-500">*</span>
-                </label>
-
-                {loadingBanks ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-10 w-full" />
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span className="text-xs text-muted-foreground">Loading banks...</span>
-                    </div>
-                  </div>
-                ) : banksError ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="flex items-center justify-between">
-                      <span>{banksError}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          bankCache.clearCache()
-                          fetchBanks()
-                        }}
-                      >
-                        Retry
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <Select value={selectedBank} onValueChange={setSelectedBank} disabled={isUploading}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={`Select from ${banks.length} banks`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {banks.map(bank => (
-                        <SelectItem key={bank.id} value={bank.id}>
-                          {bank.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                <p className="text-xs text-muted-foreground">
-                  Choose the bank that issued this statement
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Lock className="w-4 h-4" />
-                  Is this PDF password protected?
-                </label>
-                <div className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      id="password-yes"
-                      name="password-protection"
-                      value="yes"
-                      checked={isPasswordProtected === 'yes'}
-                      onChange={() => setIsPasswordProtected('yes')}
-                      disabled={isUploading}
-                      className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
-                    />
-                    <label htmlFor="password-yes" className="text-sm font-medium">
-                      Yes
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      id="password-no"
-                      name="password-protection"
-                      value="no"
-                      checked={isPasswordProtected === 'no'}
-                      onChange={() => setIsPasswordProtected('no')}
-                      disabled={isUploading}
-                      className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
-                    />
-                    <label htmlFor="password-no" className="text-sm font-medium">
-                      No
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {isPasswordProtected === 'yes' && (
-                <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium">
-                    Enter PDF Password
-                  </label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter PDF password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isUploading}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    This password is required to unlock and process your PDF
-                  </p>
-                </div>
-              )}
-            </div>
+            <FileConfigurationSection
+              loadingBanks={loadingBanks}
+              banksError={banksError}
+              banks={banks}
+              selectedBank={selectedBank}
+              setSelectedBank={setSelectedBank}
+              isPasswordProtected={isPasswordProtected}
+              setIsPasswordProtected={setIsPasswordProtected}
+              password={password}
+              setPassword={setPassword}
+              isUploading={isUploading}
+              onRetryBanks={() => {
+                bankCache.clearCache()
+                fetchBanks()
+              }}
+            />
           )}
 
         </div>
@@ -355,5 +258,269 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+interface FileConfigurationSectionProps {
+  loadingBanks: boolean
+  banksError: string
+  banks: BankConfiguration[]
+  selectedBank: string
+  setSelectedBank: (bank: string) => void
+  isPasswordProtected: 'yes' | 'no' | null
+  setIsPasswordProtected: (value: 'yes' | 'no') => void
+  password: string
+  setPassword: (password: string) => void
+  isUploading: boolean
+  onRetryBanks: () => void
+}
+
+function FileConfigurationSection({
+  loadingBanks,
+  banksError,
+  banks,
+  selectedBank,
+  setSelectedBank,
+  isPasswordProtected,
+  setIsPasswordProtected,
+  password,
+  setPassword,
+  isUploading,
+  onRetryBanks
+}: FileConfigurationSectionProps) {
+  return (
+    <div className="space-y-4">
+      <BankSelectionSection
+        loadingBanks={loadingBanks}
+        banksError={banksError}
+        banks={banks}
+        selectedBank={selectedBank}
+        setSelectedBank={setSelectedBank}
+        isUploading={isUploading}
+        onRetryBanks={onRetryBanks}
+      />
+
+      <PasswordProtectionSection
+        isPasswordProtected={isPasswordProtected}
+        setIsPasswordProtected={setIsPasswordProtected}
+        password={password}
+        setPassword={setPassword}
+        isUploading={isUploading}
+      />
+    </div>
+  )
+}
+
+interface BankSelectionSectionProps {
+  loadingBanks: boolean
+  banksError: string
+  banks: BankConfiguration[]
+  selectedBank: string
+  setSelectedBank: (bank: string) => void
+  isUploading: boolean
+  onRetryBanks: () => void
+}
+
+function BankSelectionSection({
+  loadingBanks,
+  banksError,
+  banks,
+  selectedBank,
+  setSelectedBank,
+  isUploading,
+  onRetryBanks
+}: BankSelectionSectionProps) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium flex items-center gap-2">
+        <Building className="w-4 h-4" />
+        Select Bank
+        <span className="text-red-500">*</span>
+      </label>
+
+      {loadingBanks ? (
+        <BankLoadingState />
+      ) : banksError ? (
+        <BankErrorState error={banksError} onRetry={onRetryBanks} />
+      ) : (
+        <BankSelector
+          banks={banks}
+          selectedBank={selectedBank}
+          setSelectedBank={setSelectedBank}
+          isUploading={isUploading}
+        />
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Choose the bank that issued this statement
+      </p>
+    </div>
+  )
+}
+
+function BankLoadingState() {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-10 w-full" />
+      <div className="flex items-center gap-2">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        <span className="text-xs text-muted-foreground">Loading banks...</span>
+      </div>
+    </div>
+  )
+}
+
+function BankErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <Alert variant="destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertDescription className="flex items-center justify-between">
+        <span>{error}</span>
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
+function BankSelector({
+  banks,
+  selectedBank,
+  setSelectedBank,
+  isUploading
+}: {
+  banks: BankConfiguration[]
+  selectedBank: string
+  setSelectedBank: (bank: string) => void
+  isUploading: boolean
+}) {
+  return (
+    <Select value={selectedBank} onValueChange={setSelectedBank} disabled={isUploading}>
+      <SelectTrigger>
+        <SelectValue placeholder={`Select from ${banks.length} banks`} />
+      </SelectTrigger>
+      <SelectContent>
+        {banks.map(bank => (
+          <SelectItem key={bank.id} value={bank.id}>
+            {bank.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+interface PasswordProtectionSectionProps {
+  isPasswordProtected: 'yes' | 'no' | null
+  setIsPasswordProtected: (value: 'yes' | 'no') => void
+  password: string
+  setPassword: (password: string) => void
+  isUploading: boolean
+}
+
+function PasswordProtectionSection({
+  isPasswordProtected,
+  setIsPasswordProtected,
+  password,
+  setPassword,
+  isUploading
+}: PasswordProtectionSectionProps) {
+  return (
+    <div className="space-y-3">
+      <label className="text-sm font-medium flex items-center gap-2">
+        <Lock className="w-4 h-4" />
+        Is this PDF password protected?
+      </label>
+
+      <PasswordRadioButtons
+        isPasswordProtected={isPasswordProtected}
+        setIsPasswordProtected={setIsPasswordProtected}
+        isUploading={isUploading}
+      />
+
+      {isPasswordProtected === 'yes' && (
+        <PasswordInputSection
+          password={password}
+          setPassword={setPassword}
+          isUploading={isUploading}
+        />
+      )}
+    </div>
+  )
+}
+
+function PasswordRadioButtons({
+  isPasswordProtected,
+  setIsPasswordProtected,
+  isUploading
+}: {
+  isPasswordProtected: 'yes' | 'no' | null
+  setIsPasswordProtected: (value: 'yes' | 'no') => void
+  isUploading: boolean
+}) {
+  return (
+    <div className="flex gap-6">
+      <div className="flex items-center space-x-2">
+        <input
+          type="radio"
+          id="password-yes"
+          name="password-protection"
+          value="yes"
+          checked={isPasswordProtected === 'yes'}
+          onChange={() => setIsPasswordProtected('yes')}
+          disabled={isUploading}
+          className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+        />
+        <label htmlFor="password-yes" className="text-sm font-medium">
+          Yes
+        </label>
+      </div>
+      <div className="flex items-center space-x-2">
+        <input
+          type="radio"
+          id="password-no"
+          name="password-protection"
+          value="no"
+          checked={isPasswordProtected === 'no'}
+          onChange={() => setIsPasswordProtected('no')}
+          disabled={isUploading}
+          className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+        />
+        <label htmlFor="password-no" className="text-sm font-medium">
+          No
+        </label>
+      </div>
+    </div>
+  )
+}
+
+function PasswordInputSection({
+  password,
+  setPassword,
+  isUploading
+}: {
+  password: string
+  setPassword: (password: string) => void
+  isUploading: boolean
+}) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor="password" className="text-sm font-medium">
+        Enter PDF Password
+      </label>
+      <Input
+        id="password"
+        type="password"
+        placeholder="Enter PDF password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        disabled={isUploading}
+        className="w-full"
+      />
+      <p className="text-xs text-muted-foreground">
+        This password is required to unlock and process your PDF
+      </p>
+    </div>
   )
 }

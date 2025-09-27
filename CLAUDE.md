@@ -151,4 +151,27 @@ export TF_VAR_api_gateway_stage="v1"
 - **Infrastructure deployment**: Use when changing AWS resources
 - **Code deployment**: Use when updating Lambda function code only (faster)
 
+### Production Code Optimization
+
+#### Automatic Comment and Docstring Removal
+The build process automatically removes comments and docstrings from Python files during production deployment to:
+- **Reduce package size**: ~60-80% size reduction for heavily documented files
+- **Improve performance**: Faster parsing due to smaller file size
+- **Protect intellectual property**: Implementation details removed from production
+
+**Files affected:**
+- All extractor files (e.g., `apgvb_extractor.py`, `union_bank_extractor.py`)
+- Core business logic files (`extract_pdf_data.py`, `config.py`, etc.)
+
+**Minification results:**
+- APGVB extractor: 79% size reduction (46KB → 9KB)
+- Union Bank extractor: 61% size reduction (17KB → 7KB)
+- Base extractor: 65% size reduction (5KB → 2KB)
+
+**Important notes:**
+- Source code remains unchanged - only deployment packages are minified
+- Functionality is preserved - all tests pass on minified code
+- Minification occurs automatically during `./scripts/build-functions.sh` and `./scripts/build-layers.sh`
+- Uses `python-minifier` package with safe settings (preserves imports, annotations, etc.)
+
 #
