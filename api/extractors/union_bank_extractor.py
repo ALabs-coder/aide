@@ -9,18 +9,32 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import logging
+from .base_extractor import BaseBankExtractor
 
 logger = logging.getLogger(__name__)
 
 
-class UnionBankExtractor:
+class UnionBankExtractor(BaseBankExtractor):
     """Extract comprehensive data from Union Bank PDF statements"""
 
     def __init__(self):
-        self.bank_name = "Union Bank of India"
+        # Initialize parent class first
+        super().__init__()
         self.statement_metadata = {}
         self.financial_summary = {}
         self.transactions = []
+
+    def get_bank_name(self) -> str:
+        """Return the bank name this extractor handles"""
+        return "Union Bank of India"
+
+    def get_version(self) -> str:
+        """Return the version of this extractor"""
+        return "1.0.0"
+
+    def get_supported_capabilities(self) -> List[str]:
+        """Return list of capabilities supported by this extractor"""
+        return ["password_protected", "multi_page", "transactions", "account_metadata", "statement_period"]
 
     def extract_complete_statement(self, pdf_path: str, password: Optional[str] = None) -> Dict:
         """
@@ -390,28 +404,3 @@ def extract_union_bank_statement(pdf_path: str, password: Optional[str] = None) 
     return extractor.extract_complete_statement(pdf_path, password)
 
 
-if __name__ == "__main__":
-    # Test with the provided PDF
-    pdf_path = "/Users/ramanjaneyulumedikonda/Downloads/Statement_XXXX XXXX 7499_2Sep2025_17_18.pdf"
-    password = "KONA0101"
-
-    try:
-        result = extract_union_bank_statement(pdf_path, password)
-
-        print("=== UNION BANK STATEMENT EXTRACTION RESULTS ===")
-        print(f"Bank: {result['statement_metadata']['bank_name']}")
-        print(f"Customer: {result['statement_metadata'].get('customer_name', 'N/A')}")
-        print(f"Account: {result['statement_metadata'].get('account_number', 'N/A')}")
-        print(f"Statement Period: {result['statement_metadata'].get('statement_period', 'N/A')}")
-        print(f"Total Transactions: {result['total_transactions']}")
-        print(f"Opening Balance: ₹{result['financial_summary']['opening_balance']:,.2f}")
-        print(f"Closing Balance: ₹{result['financial_summary']['closing_balance']:,.2f}")
-        print(f"Total Credits: ₹{result['financial_summary']['total_credits']:,.2f}")
-        print(f"Total Debits: ₹{result['financial_summary']['total_debits']:,.2f}")
-        print(f"Net Change: ₹{result['financial_summary']['net_change']:,.2f}")
-        print("\n=== FIRST 3 TRANSACTIONS ===")
-        for i, txn in enumerate(result['transactions'][:3]):
-            print(f"{i+1}. {txn['Date']} | {txn['Transaction_ID']} | {txn['Remarks'][:30]}... | {txn['Amount']} | Balance: {txn['Balance']}")
-
-    except Exception as e:
-        print(f"Error: {e}")

@@ -9,18 +9,32 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import logging
+from .base_extractor import BaseBankExtractor
 
 logger = logging.getLogger(__name__)
 
 
-class CanaraBankExtractor:
+class CanaraBankExtractor(BaseBankExtractor):
     """Extract comprehensive data from Canara Bank PDF statements"""
 
     def __init__(self):
-        self.bank_name = "Canara Bank"
+        # Initialize parent class first
+        super().__init__()
         self.statement_metadata = {}
         self.financial_summary = {}
         self.transactions = []
+
+    def get_bank_name(self) -> str:
+        """Return the bank name this extractor handles"""
+        return "Canara Bank"
+
+    def get_version(self) -> str:
+        """Return the version of this extractor"""
+        return "1.0.0"
+
+    def get_supported_capabilities(self) -> List[str]:
+        """Return list of capabilities supported by this extractor"""
+        return ["password_protected", "multi_page", "transactions", "financial_summary", "account_metadata", "statement_period"]
 
     def extract_complete_statement(self, pdf_path: str, password: Optional[str] = None) -> Dict:
         """
@@ -422,12 +436,18 @@ def extract_canara_bank_statement(pdf_path: str, password: Optional[str] = None)
     return extractor.extract_complete_statement(pdf_path, password)
 
 
-if __name__ == "__main__":
-    # Test with the provided PDF sample
-    pdf_path = "../CanaraBank_first_3_pages.pdf"
+# Backward compatibility function for existing code
+def extract_canara_bank_statement(pdf_path: str, password: Optional[str] = None) -> Dict:
+    """
+    Backward compatibility wrapper function
 
-    try:
-        result = extract_canara_bank_statement(pdf_path)
+    Args:
+        pdf_path (str): Path to the PDF file
+        password (str, optional): Password for encrypted PDFs
 
-    except Exception as e:
-        logger.error(f"Error: {e}")
+    Returns:
+        Dict: Complete statement data
+    """
+    extractor = CanaraBankExtractor()
+    return extractor.extract_complete_statement(pdf_path, password)
+
