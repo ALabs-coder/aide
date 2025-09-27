@@ -76,12 +76,19 @@ build_function() {
         if [[ -d "$API_ROOT/extractors" ]]; then
             cp -r "$API_ROOT/extractors" "$build_dir/"
             log_info "  Copied extractors directory"
+
+            # Minify Python files in extractors for production
+            log_info "  Minifying extractor files for production deployment..."
+            "$SCRIPT_DIR/minify-python.sh" "$build_dir/extractors"
         fi
 
         # Copy main extraction file
         if [[ -f "$API_ROOT/extract_pdf_data.py" ]]; then
             cp "$API_ROOT/extract_pdf_data.py" "$build_dir/"
             log_info "  Copied extract_pdf_data.py"
+
+            # Minify the main extraction file
+            "$SCRIPT_DIR/minify-python.sh" "$build_dir/extract_pdf_data.py"
         fi
     fi
 
