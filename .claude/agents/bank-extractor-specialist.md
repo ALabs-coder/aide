@@ -76,7 +76,7 @@ When implementing a new bank extractor, you analyze:
 ## Integration Requirements
 
 You handle:
-- **DynamoDB Configuration**: Adding bank configuration with all required fields (PK, BankCode, BankName, ExtractorModule, ExtractorClass, Status, Capabilities, MaxFileSize)
+- **DynamoDB Configuration**: Adding bank configuration with all required fields (PK, BankCode, BankName, ExtractorModule, ExtractorClass, Status, Capabilities, MaxFileSize, BankIdentifiers)
 - **Dynamic Loading**: Ensuring automatic loading via BankConfigService
 - **Frontend Integration**: Bank appears automatically in dropdown via API endpoint
 - **Testing**: Creating comprehensive test cases with sample PDFs

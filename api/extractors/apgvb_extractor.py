@@ -13,6 +13,8 @@ Key Features:
     - Clean transaction description parsing (removes amounts, balance, user IDs)
     - Financial accuracy validation and summary calculations
     - Follows BaseBankExtractor interface for consistency
+    - Security validations for file path sanitization and malicious PDF detection
+    - File size and extension validation to prevent abuse
 
 Example Usage:
     Basic extraction:
@@ -55,9 +57,115 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import logging
+from pathlib import Path
 from .base_extractor import BaseBankExtractor
 
 logger = logging.getLogger(__name__)
+
+# Security constants
+MAX_FILE_SIZE_MB = 50  # Maximum allowed PDF file size in MB
+ALLOWED_FILE_EXTENSIONS = {'.pdf'}  # Only PDF files allowed
+MAX_PDF_PAGES = 500  # Maximum number of pages to prevent processing oversized files
+BLOCKED_PATH_PATTERNS = [
+    '..',  # Path traversal
+    '~',   # Home directory access
+    '/etc',  # System directories
+    '/usr',
+    '/var/log',
+    '/root',
+    'C:\\Windows',  # Windows system directories
+    'C:\\System',
+]
+
+
+def _validate_file_path(pdf_path: str) -> str:
+    """
+    Validate and sanitize the input file path to prevent security vulnerabilities.
+
+    Args:
+        pdf_path (str): The file path to validate
+
+    Returns:
+        str: The validated absolute path
+
+    Raises:
+        ValueError: If the path is invalid or potentially malicious
+        FileNotFoundError: If the file doesn't exist
+    """
+    if not pdf_path or not isinstance(pdf_path, str):
+        raise ValueError("File path must be a non-empty string")
+
+    # Remove any null bytes that could be used for path traversal
+    clean_path = pdf_path.replace('\x00', '')
+
+    # Check for blocked path patterns
+    for pattern in BLOCKED_PATH_PATTERNS:
+        if pattern in clean_path:
+            raise ValueError(f"Path contains blocked pattern: {pattern}")
+
+    # Convert to Path object for safe handling
+    try:
+        path = Path(clean_path).resolve()
+    except (OSError, ValueError) as e:
+        raise ValueError(f"Invalid file path: {e}")
+
+    # Ensure the file exists
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    # Ensure it's a file, not a directory
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {path}")
+
+    # Check file extension
+    if path.suffix.lower() not in ALLOWED_FILE_EXTENSIONS:
+        raise ValueError(f"Invalid file extension. Only {ALLOWED_FILE_EXTENSIONS} allowed")
+
+    # Check file size
+    file_size_mb = path.stat().st_size / (1024 * 1024)
+    if file_size_mb > MAX_FILE_SIZE_MB:
+        raise ValueError(f"File too large: {file_size_mb:.1f}MB. Maximum allowed: {MAX_FILE_SIZE_MB}MB")
+
+    return str(path)
+
+
+def _validate_pdf_content(pdf_reader: pypdf.PdfReader, bank_identifiers: Optional[List[str]] = None) -> None:
+    """
+    Validate PDF content to detect potentially malicious files.
+
+    Args:
+        pdf_reader: PyPDF reader object
+        bank_identifiers: Optional list of bank-specific identifiers from database config
+
+    Raises:
+        ValueError: If the PDF content appears malicious or invalid
+    """
+    # Check number of pages to prevent memory exhaustion
+    if len(pdf_reader.pages) > MAX_PDF_PAGES:
+        raise ValueError(f"PDF has too many pages: {len(pdf_reader.pages)}. Maximum allowed: {MAX_PDF_PAGES}")
+
+    # Check for basic PDF structure
+    if not pdf_reader.pages:
+        raise ValueError("PDF has no pages")
+
+    # Validate that we can read at least the first page
+    try:
+        first_page = pdf_reader.pages[0]
+        text = first_page.extract_text()
+
+        # Basic content validation - should have some readable text
+        if not text or len(text.strip()) < 10:
+            raise ValueError("PDF appears to be empty or corrupted")
+
+        # Check for bank-specific identifiers if provided
+        if bank_identifiers:
+            text_lower = text.lower()
+            has_bank_indicator = any(identifier.lower() in text_lower for identifier in bank_identifiers)
+            if not has_bank_indicator:
+                logger.warning(f"PDF does not contain expected bank identifiers: {bank_identifiers}")
+
+    except Exception as e:
+        raise ValueError(f"Failed to validate PDF content: {e}")
 
 
 class APGVBExtractor(BaseBankExtractor):
@@ -214,9 +322,9 @@ class APGVBExtractor(BaseBankExtractor):
                 }
 
         Raises:
-            ValueError: If the PDF is encrypted but no password provided, or if the
-                provided password is incorrect. Error message includes password
-                length and case-sensitivity reminder.
+            ValueError: If the PDF is encrypted but no password provided, if the
+                provided password is incorrect, if the file path is invalid or
+                potentially malicious, or if the PDF content appears suspicious.
             FileNotFoundError: If the PDF file doesn't exist at the specified path.
             pypdf.errors.PdfReadError: If the PDF is corrupted or invalid.
             Exception: For other PDF processing errors with descriptive message.
@@ -238,8 +346,18 @@ class APGVBExtractor(BaseBankExtractor):
             summary calculation.
         """
         try:
-            with open(pdf_path, 'rb') as file:
+            # Security validation: Sanitize and validate file path
+            validated_path = _validate_file_path(pdf_path)
+            logger.info(f"Processing APGVB statement from validated path: {validated_path}")
+
+            with open(validated_path, 'rb') as file:
                 pdf_reader = pypdf.PdfReader(file)
+
+                # Get bank identifiers from configuration if available
+                bank_identifiers = self._get_bank_identifiers()
+
+                # Security validation: Validate PDF content
+                _validate_pdf_content(pdf_reader, bank_identifiers)
 
                 # Decrypt first if encrypted
                 if pdf_reader.is_encrypted:
@@ -265,9 +383,59 @@ class APGVBExtractor(BaseBankExtractor):
                     "extractor_metadata": self.get_extraction_metadata()
                 }
 
-        except Exception as e:
-            logger.error(f"Error extracting APGVB statement: {e}")
+        except ValueError as e:
+            # Handle security validation errors and PDF processing errors
+            logger.error(f"Validation error processing APGVB statement: {e}")
             raise
+        except FileNotFoundError as e:
+            # Handle file not found errors
+            logger.error(f"File not found: {e}")
+            raise
+        except pypdf.errors.PdfReadError as e:
+            # Handle PDF-specific read errors
+            logger.error(f"PDF read error: {e}")
+            raise ValueError(f"Invalid or corrupted PDF file: {e}")
+        except Exception as e:
+            # Handle any other unexpected errors
+            logger.error(f"Unexpected error extracting APGVB statement: {e}")
+            raise
+
+    def _get_bank_identifiers(self) -> Optional[List[str]]:
+        """
+        Get bank-specific identifiers from database configuration.
+
+        Returns:
+            Optional[List[str]]: List of bank identifiers for PDF validation,
+                or None if not available or if BankConfigService fails
+        """
+        try:
+            # Import here to avoid circular imports
+            from ..bank_config import BankConfigService
+
+            # Get bank configuration for APGVB
+            config_service = BankConfigService()
+            config = config_service.get_bank_config('APGVB')
+
+            # Extract BankIdentifiers from config, fallback to default if not present
+            bank_identifiers = config.get('BankIdentifiers', [
+                'andhra pradesh grameena',
+                'a.p. grameena',
+                'ap grameena',
+                'apgvb'
+            ])
+
+            logger.debug(f"Using bank identifiers: {bank_identifiers}")
+            return bank_identifiers
+
+        except Exception as e:
+            logger.warning(f"Could not fetch bank identifiers from config: {e}")
+            # Fallback to default APGVB identifiers if database lookup fails
+            return [
+                'andhra pradesh grameena',
+                'a.p. grameena',
+                'ap grameena',
+                'apgvb'
+            ]
 
     def _extract_statement_metadata(self, pdf_reader: pypdf.PdfReader) -> Dict:
         """
@@ -899,7 +1067,8 @@ def extract_apgvb_statement(pdf_path: str, password: Optional[str] = None) -> Di
             - extractor_metadata: Extractor version and capabilities
 
     Raises:
-        ValueError: If PDF is encrypted but no password provided, or password incorrect.
+        ValueError: If PDF is encrypted but no password provided, password incorrect,
+            file path is invalid or potentially malicious, or PDF content appears suspicious.
         FileNotFoundError: If PDF file doesn't exist at specified path.
         Exception: For other PDF processing or extraction errors.
 
