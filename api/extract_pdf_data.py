@@ -15,7 +15,7 @@ from extractors.canara_bank_extractor import extract_canara_bank_statement
 logger = logging.getLogger(__name__)
 
 
-def extract_bank_statement_data(pdf_path: str, password: Optional[str] = None, enhanced: bool = True) -> Union[Dict, List]:
+def extract_bank_statement_data(pdf_path: str, password: Optional[str] = None, enhanced: bool = True, bank_name: str = None) -> Union[Dict, List]:
     """
     Main function to extract bank statement data from PDF
 
@@ -23,6 +23,7 @@ def extract_bank_statement_data(pdf_path: str, password: Optional[str] = None, e
         pdf_path (str): Path to the PDF file
         password (str, optional): Password for encrypted PDFs
         enhanced (bool): If True, return enhanced format with metadata
+        bank_name (str): Required bank name selected by user
 
     Returns:
         Union[Dict, List]: Enhanced format (Dict) or legacy format (List)
@@ -33,18 +34,20 @@ def extract_bank_statement_data(pdf_path: str, password: Optional[str] = None, e
     try:
         logger.info(f"Starting extraction for PDF: {pdf_path}")
 
-        # Detect bank type from PDF content
-        detected_bank = detect_bank_type(pdf_path, password)
-        logger.info(f"Detected bank type: {detected_bank}")
+        # Validate required bank_name parameter
+        if not bank_name:
+            raise ValueError(f"Bank name is required. Currently supported banks: {', '.join(get_supported_banks())}")
 
-        # Route to appropriate extractor based on detected bank
-        if detected_bank == "Canara Bank":
+        logger.info(f"Using user-selected bank: {bank_name}")
+
+        # Route to appropriate extractor based on selected bank
+        if bank_name == "Canara Bank":
             result = extract_canara_bank_statement(pdf_path, password)
-        elif detected_bank == "Union Bank of India":
+        elif bank_name == "Union Bank of India":
             result = extract_union_bank_statement(pdf_path, password)
         else:
             # Raise error for unrecognized bank types
-            raise ValueError(f"Unrecognized bank statement format. Detected bank: {detected_bank}. Currently supported banks: {', '.join(get_supported_banks())}")
+            raise ValueError(f"Unrecognized bank statement format. Bank: {bank_name}. Currently supported banks: {', '.join(get_supported_banks())}")
 
         if enhanced:
             # Return the complete enhanced format
@@ -61,68 +64,6 @@ def extract_bank_statement_data(pdf_path: str, password: Optional[str] = None, e
         raise
 
 
-def detect_bank_type(pdf_path: str, password: Optional[str] = None) -> str:
-    """
-    Detect the bank type from PDF content
-
-    Args:
-        pdf_path (str): Path to the PDF file
-        password (str, optional): Password for encrypted PDFs
-
-    Returns:
-        str: Detected bank name
-    """
-    try:
-        import pypdf
-
-        with open(pdf_path, 'rb') as file:
-            pdf_reader = pypdf.PdfReader(file)
-
-            # Handle encrypted PDFs
-            if pdf_reader.is_encrypted:
-                if password:
-                    result = pdf_reader.decrypt(password)
-                    if result == 0:
-                        # Try trimmed password
-                        trimmed_password = password.strip()
-                        if trimmed_password != password:
-                            result = pdf_reader.decrypt(trimmed_password)
-                        if result == 0:
-                            logger.warning("Failed to decrypt PDF for bank detection")
-                            return "Union Bank of India"  # Default fallback
-                else:
-                    logger.warning("PDF is encrypted but no password provided for bank detection")
-                    return "Union Bank of India"  # Default fallback
-
-            # Extract text from first page for bank detection
-            if len(pdf_reader.pages) > 0:
-                first_page_text = pdf_reader.pages[0].extract_text().upper()
-
-                # Check for Canara Bank indicators
-                if any(indicator in first_page_text for indicator in [
-                    "CANARA BANK",
-                    "CNRB0",
-                    "IFSC CODE CNRB"
-                ]):
-                    logger.info("Detected Canara Bank from PDF content")
-                    return "Canara Bank"
-
-                # Check for Union Bank indicators
-                if any(indicator in first_page_text for indicator in [
-                    "UNION BANK OF INDIA",
-                    "UNION BANK",
-                    "UBIN0"
-                ]):
-                    logger.info("Detected Union Bank of India from PDF content")
-                    return "Union Bank of India"
-
-        # Default fallback for unrecognized banks
-        logger.info("Could not detect bank type from PDF content")
-        return "Unknown"
-
-    except Exception as e:
-        logger.error(f"Error detecting bank type: {e}")
-        return "Unknown"  # Default fallback
 
 
 def get_supported_banks() -> List[str]:
@@ -176,34 +117,37 @@ def validate_pdf_file(pdf_path: str) -> bool:
 
 
 # Legacy function for backward compatibility
-def extract_transactions_from_pdf(pdf_path: str, password: Optional[str] = None) -> List[Dict]:
+def extract_transactions_from_pdf(pdf_path: str, password: Optional[str] = None, bank_name: str = None) -> List[Dict]:
     """
     Legacy function for backward compatibility
 
     Args:
         pdf_path (str): Path to the PDF file
         password (str, optional): Password for encrypted PDFs
+        bank_name (str): Required bank name selected by user
 
     Returns:
         List[Dict]: List of transactions
     """
     logger.warning("Using deprecated function extract_transactions_from_pdf. Use extract_bank_statement_data instead.")
-    return extract_bank_statement_data(pdf_path, password, enhanced=False)
+    return extract_bank_statement_data(pdf_path, password, enhanced=False, bank_name=bank_name)
 
 
 if __name__ == "__main__":
     # Test the extraction function
     import sys
 
-    if len(sys.argv) < 2:
-        print("Usage: python extract_pdf_data.py <pdf_path> [password]")
+    if len(sys.argv) < 3:
+        print("Usage: python extract_pdf_data.py <pdf_path> <bank_name> [password]")
+        print(f"Supported banks: {', '.join(get_supported_banks())}")
         sys.exit(1)
 
     pdf_path = sys.argv[1]
-    password = sys.argv[2] if len(sys.argv) > 2 else None
+    bank_name = sys.argv[2]
+    password = sys.argv[3] if len(sys.argv) > 3 else None
 
     try:
-        result = extract_bank_statement_data(pdf_path, password, enhanced=True)
+        result = extract_bank_statement_data(pdf_path, password, enhanced=True, bank_name=bank_name)
         print(f"Extraction successful!")
         print(f"Bank: {result.get('statement_metadata', {}).get('bank_name', 'Unknown')}")
         print(f"Total transactions: {result.get('total_transactions', 0)}")

@@ -256,7 +256,7 @@ def process_message(record: Dict, context) -> Dict:
             logger.info("PDF validation passed, proceeding with extraction", extra={"job_id": job_id})
 
             # Use enhanced extraction to get complete statement data
-            extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True)
+            extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True, bank_name=bank_name)
         except ValueError as ve:
             # Handle unrecognized bank statement format
             if "Unrecognized bank statement format" in str(ve):
