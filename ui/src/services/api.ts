@@ -173,9 +173,10 @@ export const apiService = {
   },
 
   // Upload file directly to backend
-  async uploadFile(file: File, password?: string): Promise<DirectUploadResponse> {
+  async uploadFile(file: File, bankId: string, password?: string): Promise<DirectUploadResponse> {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('bank_id', bankId)
     if (password) {
       formData.append('password', password)
     }

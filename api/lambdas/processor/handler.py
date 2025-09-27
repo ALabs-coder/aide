@@ -169,7 +169,7 @@ def process_message(record: Dict, context) -> Dict:
             })
             raise ValueError(f"Missing required job_id or s3_key in message. job_id: {job_id}, s3_key: {s3_key}")
 
-        # Retrieve job data from DynamoDB to get password
+        # Retrieve job data from DynamoDB to get password and bank information
         job_data = get_job_data(job_id)
 
         # Get password if exists
@@ -178,6 +178,15 @@ def process_message(record: Dict, context) -> Dict:
             logger.info(f"Password found for job: {job_id}, length: {len(password)}")
         else:
             logger.info(f"No password for job: {job_id}")
+
+        # Get bank information from metadata
+        metadata = job_data.get('metadata', {})
+        bank_id = metadata.get('bank_id')
+        bank_name = metadata.get('bank_name')
+        if bank_id:
+            logger.info(f"Bank ID found for job: {job_id}, bank: {bank_name} ({bank_id})")
+        else:
+            logger.info(f"No bank ID specified for job: {job_id}")
         
         logger.info("Processing PDF job", extra={
             "job_id": job_id,

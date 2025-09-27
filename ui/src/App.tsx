@@ -50,10 +50,10 @@ function App() {
     fetchBankStatements()
   }, [])
 
-  const handleFileUpload = async (file: File, password?: string) => {
+  const handleFileUpload = async (file: File, bankId: string, password?: string) => {
     try {
       // Upload file directly to backend
-      const result = await apiService.uploadFile(file, password)
+      const result = await apiService.uploadFile(file, bankId, password)
 
       // Show success dialog instead of alert
       setUploadedFileName(file.name)
