@@ -100,7 +100,9 @@
       "Bash(aws dynamodb batch-write-item:*)",
       "WebFetch(domain:zachwills.net)",
       "Bash(git checkout:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

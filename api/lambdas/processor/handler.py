@@ -255,8 +255,12 @@ def process_message(record: Dict, context) -> Dict:
             # Step 2: PDF is valid, proceed with extraction
             logger.info("PDF validation passed, proceeding with extraction", extra={"job_id": job_id})
 
-            # Use enhanced extraction to get complete statement data
-            extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True, bank_name=bank_name)
+            # Use enhanced extraction to get complete statement data with Phase 3 dynamic routing
+            if bank_id:
+                extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True, bank_id=bank_id)
+            else:
+                # Fallback to legacy bank_name for backward compatibility
+                extraction_result = extract_bank_statement_data(tmp_file_path, password, enhanced=True, bank_name=bank_name)
         except ValueError as ve:
             # Handle unrecognized bank statement format
             if "Unrecognized bank statement format" in str(ve):
