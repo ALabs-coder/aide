@@ -308,8 +308,6 @@ class CanaraBankExtractor:
             # 3. Extract amounts from the amounts_line using simple parsing
             amount_str = "0.00"
             balance_str = "0.00"
-            amount_numeric = 0.0
-            balance_numeric = 0.0
 
             if amounts_line:
                 # Split amounts line and find numeric values
@@ -325,18 +323,14 @@ class CanaraBankExtractor:
                     # First number is amount, second is balance
                     amount_str = numeric_values[0]
                     balance_str = numeric_values[1]
-                    amount_numeric = float(amount_str)
-                    balance_numeric = float(balance_str)
                 elif len(numeric_values) == 1:
                     # Only one number, likely balance
                     balance_str = numeric_values[0]
-                    balance_numeric = float(balance_str)
 
             # 4. Determine transaction type
             transaction_type = "Credit"  # Default
             if '/DR/' in combined_text:
                 transaction_type = "Debit"
-                amount_numeric = -amount_numeric
 
             # 5. Extract particulars - the ENTIRE description from Particulars column
             # This includes everything between the date and before the amounts
@@ -358,9 +352,7 @@ class CanaraBankExtractor:
                 'Remarks': particulars,  # Complete Particulars column content
                 'Debit': debit_amount,
                 'Credit': credit_amount,
-                'Balance': balance_str,  # Clean balance without indicators
-                'Amount_Numeric': amount_numeric,
-                'Balance_Numeric': balance_numeric,
+                'Balance': balance_str,
                 'Transaction_Type': transaction_type,
                 'Page_Number': page_num
             }
@@ -379,17 +371,24 @@ class CanaraBankExtractor:
         # Sort transactions by date for proper calculation
         sorted_transactions = sorted(self.transactions, key=lambda x: datetime.strptime(x['Date'], '%d-%m-%Y'))
 
-        # Get opening balance from first transaction calculation or extract separately
+        # Get opening and closing balances from balance field
         first_transaction = sorted_transactions[0]
-        opening_balance = first_transaction['Balance_Numeric'] - first_transaction['Amount_Numeric']
+        last_transaction = sorted_transactions[-1]
 
-        # Get closing balance from last transaction
-        closing_balance = sorted_transactions[-1]['Balance_Numeric']
+        opening_balance = float(last_transaction['Balance'].replace(',', '')) if last_transaction['Balance'] else 0.0
+        closing_balance = float(first_transaction['Balance'].replace(',', '')) if first_transaction['Balance'] else 0.0
 
-        # Calculate totals
-        total_debits = sum(t['Amount_Numeric'] for t in self.transactions if t['Amount_Numeric'] < 0)
-        total_credits = sum(t['Amount_Numeric'] for t in self.transactions if t['Amount_Numeric'] > 0)
-        net_change = total_credits + total_debits  # debits are already negative
+        # Calculate totals from Debit and Credit fields
+        total_debits = 0.0
+        total_credits = 0.0
+
+        for t in self.transactions:
+            if t['Debit'] and t['Debit'] != "":
+                total_debits += float(t['Debit'].replace(',', ''))
+            if t['Credit'] and t['Credit'] != "":
+                total_credits += float(t['Credit'].replace(',', ''))
+
+        net_change = total_credits - total_debits
 
         # Get date range from transactions
         dates = [t['Date'] for t in self.transactions]

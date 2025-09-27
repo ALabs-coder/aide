@@ -189,6 +189,15 @@ module "api_gateway" {
   pdf_viewer_lambda_invoke_arn     = module.lambda.functions.pdf_viewer.invoke_arn
   pdf_viewer_lambda_name           = module.lambda.functions.pdf_viewer.name
 
+  # Lambda source code hashes for triggering API Gateway deployment when functions change
+  lambda_source_code_hashes = {
+    api            = module.lambda.functions.api.source_code_hash
+    upload         = module.lambda.functions.upload.source_code_hash
+    statement_data = module.lambda.functions.statement_data.source_code_hash
+    excel_export   = module.lambda.functions.excel_export.source_code_hash
+    pdf_viewer     = module.lambda.functions.pdf_viewer.source_code_hash
+  }
+
   depends_on = [module.lambda, module.iam]
 }
 

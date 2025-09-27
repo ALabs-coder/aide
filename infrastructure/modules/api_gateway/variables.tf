@@ -66,3 +66,10 @@ variable "excel_export_lambda_name" {
   description = "Excel Export Lambda function name"
   type        = string
 }
+
+# Lambda function source code hashes for triggering deployments
+variable "lambda_source_code_hashes" {
+  description = "Map of Lambda function source code hashes"
+  type        = map(string)
+  default     = {}
+}

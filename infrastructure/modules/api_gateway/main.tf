@@ -136,6 +136,8 @@ resource "aws_api_gateway_deployment" "api" {
       aws_api_gateway_integration.cors_configurations_banks_integration.id,
       aws_api_gateway_integration.cors_integration.id,
       aws_api_gateway_integration.cors_root_integration.id,
+      # Include Lambda source code hashes to trigger redeployment when functions change
+      var.lambda_source_code_hashes,
     ]))
   }
 
