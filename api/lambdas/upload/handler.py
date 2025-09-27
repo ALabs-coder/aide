@@ -12,6 +12,7 @@ import uuid
 import os
 import boto3
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 
 # Setup logging
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 JOBS_TABLE_NAME = os.getenv('JOBS_TABLE_NAME')
 PROCESSING_QUEUE_URL = os.getenv('PROCESSING_QUEUE_URL')
+BANK_CONFIGURATIONS_TABLE = os.getenv('BANK_CONFIGURATIONS_TABLE')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')  # AWS region can have a reasonable default
 
 # Validate required environment variables
@@ -31,6 +33,8 @@ if not JOBS_TABLE_NAME:
     raise ValueError("JOBS_TABLE_NAME environment variable is required")
 if not PROCESSING_QUEUE_URL:
     raise ValueError("PROCESSING_QUEUE_URL environment variable is required")
+if not BANK_CONFIGURATIONS_TABLE:
+    raise ValueError("BANK_CONFIGURATIONS_TABLE environment variable is required")
 
 # Initialize AWS clients
 s3_client = boto3.client('s3', region_name=AWS_REGION)
@@ -109,6 +113,7 @@ def parse_multipart_data(body, content_type):
         file_data = None
         filename = None
         password = None
+        bank_id = None
 
         # Split by boundary
         parts = body.split(f'--{boundary}')
@@ -158,11 +163,49 @@ def parse_multipart_data(body, content_type):
 
                 logger.info(f"Password field found in upload. Length: {len(password) if password else 0}")
 
-        return file_data, filename, password
+            # Check if this is the bank_id field
+            elif 'name="bank_id"' in content_disposition:
+                # Extract bank_id value
+                bank_id = content.strip()
+                if bank_id.endswith(f'--{boundary}'):
+                    bank_id = bank_id[:-len(f'--{boundary}')]
+                elif bank_id.endswith('--'):
+                    bank_id = bank_id[:-2]
+                bank_id = bank_id.strip()
+
+                logger.info(f"Bank ID field found in upload: {bank_id}")
+
+        return file_data, filename, password, bank_id
 
     except Exception as e:
         logger.error(f"Error parsing multipart data: {e}")
         raise ValueError(f"Failed to parse multipart data: {e}")
+
+def validate_bank_configuration(bank_id):
+    """Validate that bank exists and is active"""
+    if not bank_id:
+        return False, "Bank selection is required"
+
+    try:
+        table = dynamodb.Table(BANK_CONFIGURATIONS_TABLE)
+        response = table.get_item(
+            Key={
+                'PK': 'BANK_CONFIG',
+                'SK': bank_id
+            }
+        )
+
+        item = response.get('Item')
+        if not item:
+            return False, "Invalid bank selected. Please select from the list."
+
+        if item.get('Status') != 'ACTIVE':
+            return False, "Selected bank is currently unavailable."
+
+        return True, item.get('BankName')
+    except Exception as e:
+        logger.error(f"Bank validation error: {e}")
+        return False, "Unable to validate bank selection. Please try again."
 
 def upload_to_s3(file_data, s3_key, content_type, metadata=None):
     """Upload file to S3 bucket"""
@@ -269,7 +312,7 @@ def handle_upload(event):
             body = base64.b64decode(body).decode('latin-1')
 
         # Parse multipart data
-        file_data, filename, password = parse_multipart_data(body, content_type)
+        file_data, filename, password, bank_id = parse_multipart_data(body, content_type)
 
         if not file_data or not filename:
             return {
@@ -284,8 +327,24 @@ def handle_upload(event):
                 })
             }
 
+        # Validate bank configuration
+        is_valid_bank, bank_info = validate_bank_configuration(bank_id)
+        if not is_valid_bank:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Bad Request',
+                    'message': bank_info
+                })
+            }
+
         # Generate a default user ID for now
         default_user_id = "default-user"
+        bank_name = bank_info  # bank_info contains the bank name when validation succeeds
 
         # Validate file type
         if not filename.lower().endswith('.pdf'):
@@ -368,7 +427,9 @@ def handle_upload(event):
             'metadata': {
                 'upload_source': 'aws_api_gateway',
                 'api_version': '2.0.0',
-                'has_password': plain_password is not None
+                'has_password': plain_password is not None,
+                'bank_id': bank_id,
+                'bank_name': bank_name
             }
         }
 

@@ -4,52 +4,60 @@ output "functions" {
   description = "Lambda functions information"
   value = {
     api = {
-      name        = aws_lambda_function.api.function_name
-      arn         = aws_lambda_function.api.arn
-      invoke_arn  = aws_lambda_function.api.invoke_arn
-      version     = aws_lambda_function.api.version
+      name             = aws_lambda_function.api.function_name
+      arn              = aws_lambda_function.api.arn
+      invoke_arn       = aws_lambda_function.api.invoke_arn
+      version          = aws_lambda_function.api.version
+      source_code_hash = aws_lambda_function.api.source_code_hash
     }
     upload = {
-      name        = aws_lambda_function.upload.function_name
-      arn         = aws_lambda_function.upload.arn
-      invoke_arn  = aws_lambda_function.upload.invoke_arn
-      version     = aws_lambda_function.upload.version
+      name             = aws_lambda_function.upload.function_name
+      arn              = aws_lambda_function.upload.arn
+      invoke_arn       = aws_lambda_function.upload.invoke_arn
+      version          = aws_lambda_function.upload.version
+      source_code_hash = aws_lambda_function.upload.source_code_hash
     }
     processor = {
-      name        = aws_lambda_function.processor.function_name
-      arn         = aws_lambda_function.processor.arn
-      invoke_arn  = aws_lambda_function.processor.invoke_arn
-      version     = aws_lambda_function.processor.version
+      name             = aws_lambda_function.processor.function_name
+      arn              = aws_lambda_function.processor.arn
+      invoke_arn       = aws_lambda_function.processor.invoke_arn
+      version          = aws_lambda_function.processor.version
+      source_code_hash = aws_lambda_function.processor.source_code_hash
     }
     cleanup = {
-      name        = aws_lambda_function.cleanup.function_name
-      arn         = aws_lambda_function.cleanup.arn
-      invoke_arn  = aws_lambda_function.cleanup.invoke_arn
-      version     = aws_lambda_function.cleanup.version
+      name             = aws_lambda_function.cleanup.function_name
+      arn              = aws_lambda_function.cleanup.arn
+      invoke_arn       = aws_lambda_function.cleanup.invoke_arn
+      version          = aws_lambda_function.cleanup.version
+      source_code_hash = aws_lambda_function.cleanup.source_code_hash
     }
     dlq_processor = {
-      name        = aws_lambda_function.dlq_processor.function_name
-      arn         = aws_lambda_function.dlq_processor.arn
-      invoke_arn  = aws_lambda_function.dlq_processor.invoke_arn
-      version     = aws_lambda_function.dlq_processor.version
+      name             = aws_lambda_function.dlq_processor.function_name
+      arn              = aws_lambda_function.dlq_processor.arn
+      invoke_arn       = aws_lambda_function.dlq_processor.invoke_arn
+      version          = aws_lambda_function.dlq_processor.version
+      source_code_hash = aws_lambda_function.dlq_processor.source_code_hash
     }
     statement_data = {
-      name        = aws_lambda_function.statement_data.function_name
-      arn         = aws_lambda_function.statement_data.arn
-      invoke_arn  = aws_lambda_function.statement_data.invoke_arn
-      version     = aws_lambda_function.statement_data.version
+      name             = aws_lambda_function.statement_data.function_name
+      arn              = aws_lambda_function.statement_data.arn
+      invoke_arn       = aws_lambda_function.statement_data.invoke_arn
+      version          = aws_lambda_function.statement_data.version
+      source_code_hash = aws_lambda_function.statement_data.source_code_hash
     }
     pdf_viewer = {
-      name        = aws_lambda_function.pdf_viewer.function_name
-      arn         = aws_lambda_function.pdf_viewer.arn
-      invoke_arn  = aws_lambda_function.pdf_viewer.invoke_arn
-      version     = aws_lambda_function.pdf_viewer.version
+      name             = aws_lambda_function.pdf_viewer.function_name
+      arn              = aws_lambda_function.pdf_viewer.arn
+      invoke_arn       = aws_lambda_function.pdf_viewer.invoke_arn
+      version          = aws_lambda_function.pdf_viewer.version
+      source_code_hash = aws_lambda_function.pdf_viewer.source_code_hash
     }
     excel_export = {
-      name        = aws_lambda_function.excel_export.function_name
-      arn         = aws_lambda_function.excel_export.arn
-      invoke_arn  = aws_lambda_function.excel_export.invoke_arn
-      version     = aws_lambda_function.excel_export.version
+      name             = aws_lambda_function.excel_export.function_name
+      arn              = aws_lambda_function.excel_export.arn
+      invoke_arn       = aws_lambda_function.excel_export.invoke_arn
+      version          = aws_lambda_function.excel_export.version
+      source_code_hash = aws_lambda_function.excel_export.source_code_hash
     }
   }
 }

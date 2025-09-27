@@ -3,7 +3,7 @@ PDF Validator Module
 
 This module validates PDF files to determine if they can be processed
 for transaction extraction. It performs various checks without extracting
-any data or detecting bank types.
+any data.
 """
 
 import os

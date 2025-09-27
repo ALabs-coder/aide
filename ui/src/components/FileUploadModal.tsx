@@ -1,25 +1,33 @@
-import { useState, useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
-import { Upload, FileText, X, AlertCircle, Loader2, Lock } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { useDropzone, type FileRejection } from 'react-dropzone'
+import { Upload, FileText, X, AlertCircle, Loader2, Lock, Building } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Alert, AlertDescription } from './ui/alert'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Skeleton } from './ui/skeleton'
+import { type BankConfiguration } from '../services/api'
+import { bankCache } from '../services/bankCache'
 
 interface FileUploadModalProps {
   isOpen: boolean
   onClose: () => void
-  onUpload: (file: File, password?: string) => Promise<void>
+  onUpload: (file: File, bankId: string, password?: string) => Promise<void>
 }
 
 export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedBank, setSelectedBank] = useState<string>('')
+  const [banks, setBanks] = useState<BankConfiguration[]>([])
+  const [loadingBanks, setLoadingBanks] = useState(false)
+  const [banksError, setBanksError] = useState<string>('')
   const [isPasswordProtected, setIsPasswordProtected] = useState<'yes' | 'no' | null>(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string>('')
   const [isUploading, setIsUploading] = useState(false)
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     setError('')
     
     if (rejectedFiles.length > 0) {
@@ -39,6 +47,35 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
     }
   }, [])
 
+  // Fetch banks when modal opens with caching
+  useEffect(() => {
+    if (isOpen) {
+      // Immediately show cached data if available
+      const cachedBanks = bankCache.getCachedBanks()
+      if (cachedBanks.length > 0) {
+        setBanks(cachedBanks)
+      }
+
+      // Always try to fetch fresh data (will use cache if valid)
+      fetchBanks()
+    }
+  }, [isOpen])
+
+  const fetchBanks = async () => {
+    setLoadingBanks(bankCache.isLoading())
+    setBanksError('')
+
+    try {
+      const freshBanks = await bankCache.getBanks()
+      setBanks(freshBanks)
+    } catch (error) {
+      setBanksError('Unable to load banks. Please check your connection.')
+      console.error('Failed to fetch banks:', error)
+    } finally {
+      setLoadingBanks(false)
+    }
+  }
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -50,6 +87,12 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
 
   const handleUpload = async () => {
     if (selectedFile) {
+      // Validation: bank selection is required
+      if (!selectedBank) {
+        setError('Please select a bank from the list')
+        return
+      }
+
       // Validation: user must select password protection option
       if (isPasswordProtected === null) {
         setError('Please select whether the PDF is password protected')
@@ -66,7 +109,7 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
         setIsUploading(true)
         setError('')
         const finalPassword = isPasswordProtected === 'yes' ? password.trim() : undefined
-        await onUpload(selectedFile, finalPassword)
+        await onUpload(selectedFile, selectedBank, finalPassword)
         handleClose()
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Upload failed')
@@ -79,6 +122,7 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
   const handleClose = () => {
     if (isUploading) return
     setSelectedFile(null)
+    setSelectedBank('')
     setIsPasswordProtected(null)
     setPassword('')
     setError('')
@@ -176,6 +220,59 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
 
           {selectedFile && (
             <div className="space-y-4">
+              {/* Bank Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  Select Bank
+                  <span className="text-red-500">*</span>
+                </label>
+
+                {loadingBanks ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span className="text-xs text-muted-foreground">Loading banks...</span>
+                    </div>
+                  </div>
+                ) : banksError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>{banksError}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          bankCache.clearCache()
+                          fetchBanks()
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Select value={selectedBank} onValueChange={setSelectedBank} disabled={isUploading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={`Select from ${banks.length} banks`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {banks.map(bank => (
+                        <SelectItem key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Choose the bank that issued this statement
+                </p>
+              </div>
+
               <div className="space-y-3">
                 <label className="text-sm font-medium flex items-center gap-2">
                   <Lock className="w-4 h-4" />
@@ -245,7 +342,7 @@ export function FileUploadModal({ isOpen, onClose, onUpload }: FileUploadModalPr
           </Button>
           <Button
             onClick={handleUpload}
-            disabled={!selectedFile || isUploading || isPasswordProtected === null}
+            disabled={!selectedFile || !selectedBank || isUploading || isPasswordProtected === null}
             className="flex items-center gap-2"
           >
             {isUploading ? (

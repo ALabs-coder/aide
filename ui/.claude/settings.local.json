@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Read(//Users/ramanjaneyulumedikonda/dev/aide/infrastructure/**)",
+      "Read(//Users/ramanjaneyulumedikonda/dev/aide/api/**)",
+      "Bash(terraform show:*)",
+      "Bash(./scripts/build-functions.sh:*)",
+      "Bash(zip:*)",
+      "Bash(terraform:*)",
+      "Read(//Users/ramanjaneyulumedikonda/dev/aide/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
