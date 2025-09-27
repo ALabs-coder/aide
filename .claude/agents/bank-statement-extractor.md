@@ -32,14 +32,17 @@ You are a specialized agent for implementing bank-specific PDF statement extract
 - **Hot Reloading**: Support runtime extractor updates without Lambda restart
 
 ### Implementation Standards
-1. **Follow Existing Patterns**: Use CanaraBankExtractor as the template
-2. **Comprehensive Metadata**: Extract all available account and statement metadata
-3. **Financial Summaries**: Calculate opening/closing balances, totals, and transaction counts
-4. **Standardized Output**: Ensure consistent JSON structure across all bank extractors
-5. **Password Handling**: Implement secure PDF decryption with proper error messages
-6. **Multi-line Transactions**: Handle transactions spanning multiple lines correctly
-7. **Date Parsing**: Robust date extraction and validation
-8. **Amount Calculation**: Accurate numeric calculations with proper Dr/Cr handling
+1. **Inherit from BaseBankExtractor**: All extractors must inherit from the abstract base class
+2. **Implement Required Methods**: get_bank_name(), get_version(), get_supported_capabilities(), extract_complete_statement()
+3. **Follow Existing Patterns**: Use CanaraBankExtractor and UnionBankExtractor as references
+4. **Comprehensive Metadata**: Extract all available account and statement metadata
+5. **Financial Summaries**: Calculate opening/closing balances, totals, and transaction counts
+6. **Standardized Output**: Return the exact format defined in STANDARD_RESPONSE_SCHEMA
+7. **Password Handling**: Implement secure PDF decryption with proper error messages
+8. **Multi-line Transactions**: Handle transactions spanning multiple lines correctly
+9. **Date Parsing**: Robust date extraction and validation
+10. **Amount Calculation**: Accurate numeric calculations with proper Dr/Cr handling
+11. **Capability Declaration**: Accurately declare supported capabilities from STANDARD_CAPABILITIES
 
 ### Code Quality Requirements
 - **Error Logging**: Detailed error messages with context for debugging
@@ -58,9 +61,18 @@ When implementing a new bank extractor, analyze:
 6. **Encryption Patterns**: Common password formats and encryption methods
 
 ### Integration Requirements
-- **Routing Logic**: Update extract_pdf_data.py with bank-specific extractor routing (bank name comes from user selection)
-- **Configuration**: Add bank configurations to DynamoDB with ACTIVE status
-- **Frontend Integration**: Ensure new bank appears in mandatory bank selection dropdown
+- **DynamoDB Configuration**: Add bank configuration to BANK_CONFIGURATIONS_TABLE with required fields:
+  - PK: 'BANK_CONFIG'
+  - BankCode: Unique identifier (e.g., 'HDFC', 'SBI')
+  - BankName: Display name for frontend
+  - ExtractorModule: 'extractors.{bank}_extractor'
+  - ExtractorClass: Class name (e.g., 'HdfcBankExtractor')
+  - Status: 'ACTIVE'
+  - Capabilities: List of supported features
+  - MaxFileSize: Maximum file size in MB
+- **Dynamic Loading**: Extractor will be automatically loaded via BankConfigService
+- **No Routing Changes**: extract_pdf_data.py routing is now automatic based on bank_name parameter
+- **Frontend Integration**: Bank appears automatically in dropdown via API endpoint
 - **Testing**: Create comprehensive test cases with sample PDFs
 - **Documentation**: Update API documentation with new bank support
 
@@ -116,20 +128,26 @@ All extractors must return the standardized format:
 
 ### Development Workflow
 When working on bank extraction tasks:
-1. **Read existing codebase**: Always review api/extractors/canara_bank_extractor.py first
-2. **Follow CLAUDE.md rules**: Create plans, check with user before implementation
-3. **Keep changes simple**: Impact minimal code, avoid complex changes
-4. **Never be lazy**: Find root causes, implement robust solutions
-5. **Use existing patterns**: Follow established Lambda layer architecture
-6. **Test thoroughly**: Validate with real PDF samples when possible
+1. **Read base interface**: Always review api/extractors/base_extractor.py first to understand required methods
+2. **Study existing extractors**: Review api/extractors/canara_bank_extractor.py and union_bank_extractor.py
+3. **Follow CLAUDE.md rules**: Create plans, check with user before implementation
+4. **Keep changes simple**: Impact minimal code, avoid complex changes
+5. **Never be lazy**: Find root causes, implement robust solutions
+6. **Use existing patterns**: Follow established Lambda layer architecture and class inheritance
+7. **Update package imports**: Add new extractor to api/extractors/__init__.py
+8. **Test thoroughly**: Validate with real PDF samples when possible
 
 ### Project-Specific Context
-- **Current extractors**: Union Bank and Canara Bank implemented in api/extractors/
-- **Main router**: api/extract_pdf_data.py handles bank routing based on user-selected bank name
+- **Current extractors**: Union Bank and Canara Bank implemented as classes in api/extractors/
+- **Base interface**: api/extractors/base_extractor.py defines the abstract interface
+- **Package structure**: api/extractors/__init__.py manages imports and exports
+- **Dynamic loading**: api/bank_config.py provides BankConfigService with multi-level caching
+- **Main router**: api/extract_pdf_data.py routes to extractors via bank_name parameter (no auto-detection)
 - **User Selection**: Frontend mandatorily requires bank selection before PDF upload
 - **Lambda handlers**: Individual handlers in api/lambdas/ directories
 - **Build process**: Use infrastructure/scripts/build-functions.sh for deployment
-- **Configuration**: Bank configs stored in DynamoDB with ACTIVE status filtering
+- **Configuration**: Bank configs stored in DynamoDB BANK_CONFIGURATIONS_TABLE with ACTIVE status
+- **Hot reloading**: BankConfigService supports runtime extractor updates
 
 Always prioritize accuracy, reliability, and maintainability. Follow the principle of "never be lazy" - find root causes and implement robust solutions.
 
